@@ -1070,9 +1070,28 @@ h1, h2, h3 {
     font-weight: 600;
     letter-spacing: 0.5px;
     text-transform: uppercase;
-    color: var(--text-muted);
-    margin-bottom: 8px;
+    color: var(--gold);
+    margin-bottom: 6px;
     line-height: 1.4;
+}
+
+.rate-card-desc {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+    margin: 0 0 10px;
+}
+
+.rate-card-minimum {
+    max-width: 140px;
+}
+
+.rate-tariffs-note {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin: -4px 0 10px;
+    text-align: center;
 }
 
 .rate-card-row {
@@ -1109,7 +1128,7 @@ h1, h2, h3 {
     font-size: 0.68rem;
     color: var(--text-muted);
     line-height: 1.5;
-    margin: -6px 0 16px;
+    margin: 0 0 16px;
     text-align: center;
 }
 

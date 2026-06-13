@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
     <link rel="preload" as="image" href="images/hero1.png">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
 
@@ -331,7 +331,7 @@
                                     <input type="number" id="horasExtra" value="0" min="0" step="1" placeholder="0">
                                     <p class="form-hint">Agrega 1 h o más si necesitan parada adicional (banco, trámite, etc.). Los detalles se confirman al reservar.</p>
                                 </div>
-                                <div class="form-row">
+                                <div class="form-row route-calc-fields" id="routeCalcTraslado" hidden>
                                     <div class="form-group">
                                         <label for="km">Distancia (km)</label>
                                         <input type="number" id="km" placeholder="0" min="0" step="0.1">
@@ -349,7 +349,7 @@
                                     <label for="origenTour">Dirección de recogida</label>
                                     <input type="text" id="origenTour" placeholder="Ej. Hotel en Tijuana" autocomplete="off">
                                 </div>
-                                <div class="form-row">
+                                <div class="form-row route-calc-fields" id="routeCalcTour" hidden>
                                     <div class="form-group">
                                         <label for="kmTour">Km ida al valle</label>
                                         <input type="number" id="kmTour" placeholder="90" min="0" step="0.1">
@@ -378,40 +378,24 @@
 
                         <div class="rate-cards rate-cards-dual">
                             <div class="rate-card-group">
-                                <span class="rate-card-group-label">Local · Tijuana, Rosarito, Playas, Tecate, garitas</span>
-                                <div class="rate-card-row">
-                                    <div class="rate-card">
-                                        <span>Mínimo</span>
-                                        <strong>$120</strong>
-                                    </div>
-                                    <div class="rate-card">
-                                        <span>Por km</span>
-                                        <strong>$10</strong>
-                                    </div>
-                                    <div class="rate-card">
-                                        <span>Por hora</span>
-                                        <strong>$250</strong>
-                                    </div>
+                                <span class="rate-card-group-label">Traslado local</span>
+                                <p class="rate-card-desc">Tijuana, Rosarito, Playas, Tecate y garitas.</p>
+                                <div class="rate-card rate-card-minimum">
+                                    <span>Desde</span>
+                                    <strong>$120</strong>
                                 </div>
                             </div>
                             <div class="rate-card-group">
-                                <span class="rate-card-group-label">Premium · Ensenada, Mexicali, Valle y programados</span>
-                                <div class="rate-card-row">
-                                    <div class="rate-card">
-                                        <span>Mínimo</span>
-                                        <strong>$150</strong>
-                                    </div>
-                                    <div class="rate-card">
-                                        <span>Por km</span>
-                                        <strong>$14</strong>
-                                    </div>
-                                    <div class="rate-card">
-                                        <span>Por hora</span>
-                                        <strong>$300</strong>
-                                    </div>
+                                <span class="rate-card-group-label">Traslado premium</span>
+                                <p class="rate-card-desc">Ensenada, Mexicali, Valle y viajes programados de mayor distancia.</p>
+                                <div class="rate-card rate-card-minimum">
+                                    <span>Desde</span>
+                                    <strong>$150</strong>
                                 </div>
                             </div>
                         </div>
+
+                        <p class="rate-tariffs-note">La tarifa depende del trayecto. Los viajes fuera de la zona metropolitana o de mayor recorrido aplican tarifa premium.</p>
 
                         <p class="rate-policy-note">Al reservar se confirma hasta el 115% del estimado. Horario especial madrugada (12:00 a.m.–4:59 a.m.): +30%.</p>
 
@@ -552,6 +536,6 @@
 </div>
 
 <script src="config.js"></script>
-<script src="script.js"></script>
+<script src="script.js?v=3"></script>
 </body>
 </html>

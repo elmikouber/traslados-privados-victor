@@ -330,11 +330,11 @@ function detallePrecioTraslado(km, minutos, idaVuelta, calculo) {
     let texto = "";
 
     if (idaVuelta) {
-        texto = `${tipo}: ida y vuelta (${km * 2} km, ${minutos * 2} min de manejo).`;
+        texto = `${tipo}: traslado ida y vuelta.`;
     } else if (calculo.esForaneo) {
-        texto = `${tipo}: trayecto foráneo solo ida (${km} km), incluye ${Math.round(FORANEO_RETORNO_PORCENTAJE * 100)}% del retorno del vehículo.`;
+        texto = `${tipo}: trayecto foráneo solo ida, incluye retorno del vehículo.`;
     } else if (calculo.usoColchonTrafico) {
-        texto = `${tipo}: traslado local con tiempo ajustado por tráfico en zona fronteriza o playas.`;
+        texto = `${tipo}: traslado en zona metropolitana.`;
     } else {
         texto = `${tipo}: traslado de origen a destino.`;
     }
@@ -427,17 +427,11 @@ function construirMensaje(datos, promedio, minimo, maximo, confirmado) {
         lineas.push(...lineasUbicacionWhatsApp("Destino", datos.destino, datos.destinoCoords));
         lineas.push(
             "",
-            `• Distancia (ida): ${datos.km} km`,
-            `• Tiempo (ida): ${datos.minutos} min`,
             `• Modalidad: ${datos.idaVuelta ? "Ida y vuelta" : "Solo ida"}`
         );
 
         if (datos.esForaneo) {
             lineas.push("• Trayecto foráneo (incluye retorno del vehículo)");
-        }
-
-        if (datos.usoColchonTrafico) {
-            lineas.push("• Tiempo ajustado por tráfico en zona local");
         }
 
         if (datos.horasExtra > 0) {
@@ -452,7 +446,6 @@ function construirMensaje(datos, promedio, minimo, maximo, confirmado) {
         lineas.push(...lineasUbicacionWhatsApp("Destino", datos.destino, datos.destinoCoords));
         lineas.push(
             "",
-            `• Km ida y vuelta: ${datos.km * 2} km`,
             `• Horas en valle: ${datos.horasValle} h`
         );
 
@@ -548,7 +541,7 @@ function calcular(event) {
             vinedos,
             nivelServicio
         };
-        detalle = `${TARIFAS.ejecutivo.etiqueta}: traslado ida y vuelta (${km * 2} km) + ${horasValle} h en el valle.`;
+        detalle = `${TARIFAS.ejecutivo.etiqueta}: tour con ${horasValle} h en el valle.`;
     }
 
     const recargoHorario = aplicarRecargoHorarioEspecial(base, horario);
@@ -1100,6 +1093,16 @@ function setRouteStatus(elemento, mensaje, estado) {
     elemento.textContent = mensaje;
     elemento.classList.remove("is-loading", "is-ok", "is-error");
     if (estado) elemento.classList.add(estado);
+
+    const panel = elemento.id === "routeStatus"
+        ? document.getElementById("routeCalcTraslado")
+        : elemento.id === "routeStatusTour"
+            ? document.getElementById("routeCalcTour")
+            : null;
+
+    if (panel) {
+        panel.hidden = estado !== "is-error";
+    }
 }
 
 const DIRECTIONS_ERROR_MSG = {
@@ -1634,12 +1637,13 @@ function llenarCamposRuta(kmInput, minInput, ruta) {
     minInput.value = ruta.minutos;
 }
 
-function mensajeRutaOk(ruta, prefijo = "Ruta estimada") {
+function mensajeRutaOk(ruta, prefijo = "Ruta") {
     if (ruta.fuente === "osrm") {
-        return `${prefijo} (aprox., OpenStreetMap): ${ruta.km} km · ${ruta.minutos} min`;
+        return `${prefijo} calculada (referencia aproximada).`;
     }
+
     const trafico = ruta.conTrafico ? "con tráfico" : "ruta más corta";
-    return `${prefijo} (Google Maps, ${trafico}): ${ruta.km} km · ${ruta.minutos} min`;
+    return `${prefijo} calculada (${trafico}).`;
 }
 
 async function calcularRutaAutomatica(tipo) {
@@ -1669,7 +1673,7 @@ async function calcularRutaAutomatica(tipo) {
             }
 
             llenarCamposRuta(kmInput, minInput, ruta);
-            setRouteStatus(status, `${mensajeRutaOk(ruta)} — puedes ajustar si lo necesitas`, "is-ok");
+            setRouteStatus(status, mensajeRutaOk(ruta), "is-ok");
         } catch (error) {
             if (requestId !== routeRequestCounter) return;
             setRouteStatus(status, mensajeErrorRuta(error), "is-error");
@@ -1700,7 +1704,7 @@ async function calcularRutaAutomatica(tipo) {
             }
 
             llenarCamposRuta(kmInput, minInput, ruta);
-            setRouteStatus(status, `${mensajeRutaOk(ruta, "Ida al valle")}`, "is-ok");
+            setRouteStatus(status, mensajeRutaOk(ruta, "Ruta al valle"), "is-ok");
         } catch (error) {
             if (requestId !== routeRequestCounter) return;
             setRouteStatus(status, mensajeErrorRuta(error), "is-error");
