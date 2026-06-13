@@ -20,6 +20,8 @@ const TARIFAS = {
 const KM_FORANEO_UMBRAL = 60;
 const FORANEO_RETORNO_PORCENTAJE = 0.6;
 const MINUTOS_COLCHON_TRAFICO = 45;
+const HORARIO_ESPECIAL_HASTA_HORA = 5;
+const RECARGO_HORARIO_ESPECIAL = 0.3;
 
 const PATRONES_UBICACION_FORANEA = [
     /ensenada/i,
@@ -188,6 +190,43 @@ function calcularRango(base) {
     };
 }
 
+function esHorarioEspecial(horario) {
+    if (!horario) return false;
+
+    const [horas, minutos] = horario.split(":").map(Number);
+    if (isNaN(horas) || isNaN(minutos)) return false;
+
+    return horas >= 0 && horas < HORARIO_ESPECIAL_HASTA_HORA;
+}
+
+function formatearHorario12h(horario) {
+    if (!horario) return "";
+
+    const [horas, minutos] = horario.split(":").map(Number);
+    if (isNaN(horas) || isNaN(minutos)) return horario;
+
+    const periodo = horas >= 12 ? "p.m." : "a.m.";
+    const hora12 = horas % 12 || 12;
+
+    return `${hora12}:${String(minutos).padStart(2, "0")} ${periodo}`;
+}
+
+function aplicarRecargoHorarioEspecial(base, horario) {
+    if (!esHorarioEspecial(horario)) {
+        return {
+            base,
+            esHorarioEspecial: false,
+            recargoPorcentaje: 0
+        };
+    }
+
+    return {
+        base: Math.round(base * (1 + RECARGO_HORARIO_ESPECIAL)),
+        esHorarioEspecial: true,
+        recargoPorcentaje: RECARGO_HORARIO_ESPECIAL
+    };
+}
+
 function textoUbicacion(texto) {
     return (texto || "").trim().toLowerCase();
 }
@@ -313,6 +352,130 @@ function formatearFecha(fecha) {
     return `${dia}/${mes}/${anio}`;
 }
 
+function leerCoordenadasDesdeInput(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return null;
+
+    const lat = parseFloat(input.dataset.lat);
+    const lng = parseFloat(input.dataset.lng);
+
+    if (isNaN(lat) || isNaN(lng)) return null;
+    return { lat, lng };
+}
+
+function guardarCoordenadasEnInput(input, lat, lng) {
+    if (!input) return;
+    input.dataset.lat = String(lat);
+    input.dataset.lng = String(lng);
+}
+
+function limpiarCoordenadasInput(input) {
+    if (!input) return;
+    delete input.dataset.lat;
+    delete input.dataset.lng;
+}
+
+function crearEnlaceGoogleMaps(direccion, coords = null) {
+    let destino = "";
+
+    if (coords && !isNaN(coords.lat) && !isNaN(coords.lng)) {
+        destino = `${coords.lat},${coords.lng}`;
+    } else if (direccion) {
+        destino = encodeURIComponent(direccion);
+    } else {
+        return null;
+    }
+
+    return `https://www.google.com/maps/dir/?api=1&destination=${destino}`;
+}
+
+function lineasUbicacionWhatsApp(etiqueta, direccion, coords = null) {
+    const lineas = [`📍 ${etiqueta.toUpperCase()}`, direccion];
+    const enlace = crearEnlaceGoogleMaps(direccion, coords);
+
+    if (enlace) {
+        lineas.push(`🗺️ ${enlace}`);
+    }
+
+    return lineas;
+}
+
+function construirMensaje(datos, promedio, minimo, maximo, confirmado) {
+    const nivel = TARIFAS[datos.nivelServicio || "ejecutivo"];
+    const lineas = [
+        "🚗 SOLICITUD DE TRASLADO",
+        "Traslados Privados Víctor",
+        "",
+        "━━━━━━━━━━━━━━━━━━",
+        "📋 SERVICIO",
+        `• Tipo: ${tipoLabels[datos.tipo]}`,
+        `• Tarifa: ${nivel.etiqueta}`,
+        `• Fecha: ${formatearFecha(datos.fecha)}`,
+        `• Horario: ${formatearHorario12h(datos.horario)}`
+    ];
+
+    if (datos.esHorarioEspecial) {
+        lineas.push("• Horario especial madrugada: +30%");
+    }
+
+    lineas.push("");
+
+    if (datos.tipo === "traslado") {
+        lineas.push("📍 RUTA", "");
+        lineas.push(...lineasUbicacionWhatsApp("Origen", datos.origen, datos.origenCoords));
+        lineas.push("");
+        lineas.push(...lineasUbicacionWhatsApp("Destino", datos.destino, datos.destinoCoords));
+        lineas.push(
+            "",
+            `• Distancia (ida): ${datos.km} km`,
+            `• Tiempo (ida): ${datos.minutos} min`,
+            `• Modalidad: ${datos.idaVuelta ? "Ida y vuelta" : "Solo ida"}`
+        );
+
+        if (datos.esForaneo) {
+            lineas.push("• Trayecto foráneo (incluye retorno del vehículo)");
+        }
+
+        if (datos.usoColchonTrafico) {
+            lineas.push("• Tiempo ajustado por tráfico en zona local");
+        }
+
+        if (datos.horasExtra > 0) {
+            lineas.push(`• Horas extra: ${datos.horasExtra} h`);
+        }
+    }
+
+    if (datos.tipo === "tour") {
+        lineas.push("📍 RUTA", "");
+        lineas.push(...lineasUbicacionWhatsApp("Recogida", datos.origen, datos.origenCoords));
+        lineas.push("");
+        lineas.push(...lineasUbicacionWhatsApp("Destino", datos.destino, datos.destinoCoords));
+        lineas.push(
+            "",
+            `• Km ida y vuelta: ${datos.km * 2} km`,
+            `• Horas en valle: ${datos.horasValle} h`
+        );
+
+        if (datos.vinedos) {
+            lineas.push(`• Viñedos: ${datos.vinedos}`);
+        }
+    }
+
+    lineas.push(
+        "",
+        "💰 COTIZACIÓN ESTIMADA",
+        `• Referencia: $${promedio} MXN`,
+        `• Rango: $${minimo} – $${maximo} MXN`,
+        `• Al reservar (hasta 115%): $${confirmado} MXN`,
+        "",
+        "━━━━━━━━━━━━━━━━━━",
+        "Hola Víctor, me interesa confirmar este traslado.",
+        "Quedo atento a tu confirmación. ¡Gracias!"
+    );
+
+    return lineas.join("\n");
+}
+
 function calcular(event) {
     if (event) event.preventDefault();
 
@@ -347,6 +510,8 @@ function calcular(event) {
             ...datos,
             origen,
             destino,
+            origenCoords: leerCoordenadasDesdeInput("origen"),
+            destinoCoords: leerCoordenadasDesdeInput("destino"),
             km,
             minutos,
             idaVuelta,
@@ -371,8 +536,28 @@ function calcular(event) {
         const calculoTour = calcularPrecioTour(km, minutos, horasValle);
         base = calculoTour.base;
 
-        datos = { ...datos, origen, km, minutos, horasValle, vinedos, nivelServicio };
+        datos = {
+            ...datos,
+            origen,
+            destino: VALLE_DESTINO,
+            origenCoords: leerCoordenadasDesdeInput("origenTour"),
+            destinoCoords: null,
+            km,
+            minutos,
+            horasValle,
+            vinedos,
+            nivelServicio
+        };
         detalle = `${TARIFAS.ejecutivo.etiqueta}: traslado ida y vuelta (${km * 2} km) + ${horasValle} h en el valle.`;
+    }
+
+    const recargoHorario = aplicarRecargoHorarioEspecial(base, horario);
+    base = recargoHorario.base;
+    datos.esHorarioEspecial = recargoHorario.esHorarioEspecial;
+    datos.recargoHorarioEspecial = recargoHorario.recargoPorcentaje;
+
+    if (recargoHorario.esHorarioEspecial) {
+        detalle = `${detalle} Incluye recargo por horario especial madrugada (+30%).`.trim();
     }
 
     const { minimo, maximo, confirmado } = calcularRango(base);
@@ -384,7 +569,7 @@ function calcular(event) {
     resultado.classList.add("visible");
 
     const whatsappBtn = document.getElementById("whatsappBtn");
-    whatsappBtn.href = `https://wa.me/${telefono}?text=${encodeURIComponent(construirMensaje(datos, minimo, maximo, confirmado))}`;
+    whatsappBtn.href = `https://wa.me/${telefono}?text=${encodeURIComponent(construirMensaje(datos, promedio, minimo, maximo, confirmado))}`;
     whatsappBtn.style.display = "flex";
 
     if (mostrarMapa) {
@@ -409,8 +594,15 @@ function construirResultado(datos, promedio, minimo, maximo, confirmado, detalle
     const meta = [
         `<div class="result-meta-item">Servicio<strong>${tipoLabels[datos.tipo]}</strong></div>`,
         `<div class="result-meta-item">Tarifa<strong>${nivel.etiqueta}</strong></div>`,
-        `<div class="result-meta-item">Fecha<strong>${formatearFecha(datos.fecha)}</strong></div>`
+        `<div class="result-meta-item">Fecha<strong>${formatearFecha(datos.fecha)}</strong></div>`,
+        `<div class="result-meta-item">Horario<strong>${formatearHorario12h(datos.horario)}</strong></div>`
     ];
+
+    if (datos.esHorarioEspecial) {
+        meta.push(
+            `<div class="result-meta-item">Recargo madrugada<strong>+30%</strong></div>`
+        );
+    }
 
     if (datos.tipo === "traslado") {
         meta.push(
@@ -453,56 +645,6 @@ function construirResultado(datos, promedio, minimo, maximo, confirmado, detalle
             <p class="result-policy-note">${NOTA_CIERRE_RESERVA}</p>
         </div>
     `;
-}
-
-function construirMensaje(datos, minimo, maximo, confirmado) {
-    const nivel = TARIFAS[datos.nivelServicio || "ejecutivo"];
-    let lineas = [
-        "Hola Víctor, me interesa un traslado privado.",
-        "",
-        `Tipo: ${tipoLabels[datos.tipo]}`,
-        `Tarifa: ${nivel.etiqueta}`,
-        `Fecha: ${formatearFecha(datos.fecha)}`,
-        `Horario: ${datos.horario}`
-    ];
-
-    if (datos.tipo === "traslado") {
-        lineas.push(
-            `Origen: ${datos.origen}`,
-            `Destino: ${datos.destino}`,
-            `Distancia (ida): ${datos.km} km`,
-            `Tiempo (ida): ${datos.minutos} min`,
-            datos.idaVuelta ? "Incluye ida y vuelta" : "Solo ida"
-        );
-
-        if (datos.esForaneo) {
-            lineas.push("Trayecto foráneo (incluye retorno del vehículo)");
-        }
-
-        if (datos.usoColchonTrafico) {
-            lineas.push("Tiempo ajustado por tráfico en zona local");
-        }
-
-        if (datos.horasExtra > 0) {
-            lineas.push(`Horas extra: ${datos.horasExtra} h`);
-        }
-    }
-
-    if (datos.tipo === "tour") {
-        lineas.push(
-            `Recogida: ${datos.origen}`,
-            `Km ida y vuelta: ${datos.km * 2} km`,
-            `Horas en valle: ${datos.horasValle} h`
-        );
-        if (datos.vinedos) lineas.push(`Viñedos: ${datos.vinedos}`);
-    }
-
-    lineas.push(
-        "",
-        `Estimado: $${minimo} - $${maximo} MXN`,
-        `Precio al reservar (115%): $${confirmado} MXN`
-    );
-    return lineas.join("\n");
 }
 
 /* ── Service tabs ── */
@@ -1133,8 +1275,19 @@ function crearAutocompleteDireccion(input, alSeleccionar) {
             (place, status) => {
                 if (status === google.maps.places.PlacesServiceStatus.OK && place) {
                     input.value = place.formatted_address || place.name || prediction.description;
+
+                    if (place.geometry?.location) {
+                        guardarCoordenadasEnInput(
+                            input,
+                            place.geometry.location.lat(),
+                            place.geometry.location.lng()
+                        );
+                    } else {
+                        limpiarCoordenadasInput(input);
+                    }
                 } else {
                     input.value = prediction.description;
+                    limpiarCoordenadasInput(input);
                 }
 
                 input.dispatchEvent(new Event("change", { bubbles: true }));
@@ -1224,6 +1377,7 @@ function crearAutocompleteDireccion(input, alSeleccionar) {
     });
 
     input.addEventListener("input", () => {
+        limpiarCoordenadasInput(input);
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => buscarSugerencias(input.value.trim()), 250);
     });
