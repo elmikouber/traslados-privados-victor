@@ -1,11 +1,60 @@
 const telefono = "526648196809";
-const TARIFA_KM = 14;
-const TARIFA_HORA = 300;
-const TARIFA_MINIMA = 150;
+
+const TARIFAS = {
+    estandar: {
+        km: 10,
+        hora: 250,
+        minima: 120,
+        etiqueta: "Traslado local",
+        etiquetaCorta: "Local"
+    },
+    ejecutivo: {
+        km: 14,
+        hora: 300,
+        minima: 150,
+        etiqueta: "Programado premium",
+        etiquetaCorta: "Premium"
+    }
+};
+
+const KM_FORANEO_UMBRAL = 60;
+const FORANEO_RETORNO_PORCENTAJE = 0.6;
+const MINUTOS_COLCHON_TRAFICO = 45;
+
+const PATRONES_UBICACION_FORANEA = [
+    /ensenada/i,
+    /mexicali/i,
+    /valle de guadalupe/i,
+    /san diego/i,
+    /\bvalle\b/i
+];
+
+const PATRONES_UBICACION_LOCAL = [
+    /tijuana/i,
+    /rosarito/i,
+    /playas/i,
+    /tecate/i,
+    /san ysidro/i,
+    /ysidro/i,
+    /otay/i,
+    /garita/i,
+    /aeropuerto/i,
+    /\btij\b/i
+];
+
+const PATRONES_TRAFICO_INTENSO = [
+    /playas/i,
+    /garita/i,
+    /san ysidro/i,
+    /ysidro/i,
+    /otay/i
+];
+
+const NOTA_CIERRE_RESERVA =
+    "Al reservar se confirma hasta el monto máximo del rango (115%). Pueden aplicar ajustes por espera prolongada o cambio de destino.";
 
 const tipoLabels = {
     traslado: "Traslado punto a punto",
-    horas: "Servicio por horas",
     tour: "Tour Valle de Guadalupe"
 };
 
@@ -15,12 +64,15 @@ function getTipoServicio() {
 
 function actualizarFormulario() {
     const tipo = getTipoServicio();
+    const camposOrigenDestino = document.getElementById("camposOrigenDestino");
     const camposTraslado = document.getElementById("camposTraslado");
-    const camposHoras = document.getElementById("camposHoras");
     const camposTour = document.getElementById("camposTour");
 
+    if (camposOrigenDestino) {
+        camposOrigenDestino.style.display = tipo === "traslado" ? "block" : "none";
+    }
+
     camposTraslado.style.display = tipo === "traslado" ? "block" : "none";
-    camposHoras.classList.toggle("active", tipo === "horas");
     camposTour.classList.toggle("active", tipo === "tour");
 
     resetResultado();
@@ -71,15 +123,10 @@ async function obtenerDireccionesParaMapa(origen, destino) {
     await cargarGoogleMaps();
 
     const directionsService = new google.maps.DirectionsService();
-    const dirResp = await solicitarDirecciones(directionsService, {
-        origin: normalizarLugar(origen),
-        destination: normalizarLugar(destino),
-        travelMode: google.maps.TravelMode.DRIVING,
-        region: "mx"
-    });
+    const dirResp = await solicitarDirecciones(directionsService, crearSolicitudDirecciones(origen, destino));
 
     if (dirResp.status === google.maps.DirectionsStatus.OK) {
-        return dirResp.result;
+        return seleccionarRutaMasCorta(dirResp.result);
     }
 
     return null;
@@ -136,8 +183,128 @@ async function renderizarMapaRuta(origen, destino, nota = "") {
 function calcularRango(base) {
     return {
         minimo: Math.round(base * 0.90),
-        maximo: Math.round(base * 1.15)
+        maximo: Math.round(base * 1.15),
+        confirmado: Math.round(base * 1.15)
     };
+}
+
+function textoUbicacion(texto) {
+    return (texto || "").trim().toLowerCase();
+}
+
+function esUbicacionForanea(texto) {
+    const ubicacion = textoUbicacion(texto);
+    return PATRONES_UBICACION_FORANEA.some((patron) => patron.test(ubicacion));
+}
+
+function esUbicacionLocal(texto) {
+    const ubicacion = textoUbicacion(texto);
+    if (!ubicacion || esUbicacionForanea(texto)) return false;
+    return PATRONES_UBICACION_LOCAL.some((patron) => patron.test(ubicacion));
+}
+
+function determinarNivelServicio(origen, destino, tipoServicio, km = null) {
+    if (tipoServicio === "tour") {
+        return "ejecutivo";
+    }
+
+    if (esUbicacionLocal(origen) && esUbicacionLocal(destino)) {
+        return "estandar";
+    }
+
+    if (
+        km !== null &&
+        km <= KM_FORANEO_UMBRAL &&
+        !esUbicacionForanea(origen) &&
+        !esUbicacionForanea(destino)
+    ) {
+        return "estandar";
+    }
+
+    return "ejecutivo";
+}
+
+function requiereColchonTrafico(origen, destino) {
+    const texto = `${origen} ${destino}`;
+    return PATRONES_TRAFICO_INTENSO.some((patron) => patron.test(textoUbicacion(texto)));
+}
+
+function ajustarMinutosColchon(minutos, origen, destino, nivel) {
+    if (nivel !== "estandar" || !requiereColchonTrafico(origen, destino)) {
+        return minutos;
+    }
+
+    return Math.max(minutos, MINUTOS_COLCHON_TRAFICO);
+}
+
+function calcularPrecioTraslado(km, minutos, idaVuelta, horasExtra, nivel, origen = "", destino = "") {
+    const tarifa = TARIFAS[nivel];
+    let kmCobrados = km;
+    let minutosCobrados = ajustarMinutosColchon(minutos, origen, destino, nivel);
+    let esForaneo = false;
+    let usoColchonTrafico = minutosCobrados > minutos;
+
+    if (idaVuelta) {
+        kmCobrados = km * 2;
+        minutosCobrados = ajustarMinutosColchon(minutos * 2, origen, destino, nivel);
+    } else if (nivel === "ejecutivo" && km > KM_FORANEO_UMBRAL) {
+        const factorRetorno = 1 + FORANEO_RETORNO_PORCENTAJE;
+        kmCobrados = km * factorRetorno;
+        minutosCobrados = minutosCobrados * factorRetorno;
+        esForaneo = true;
+    }
+
+    const precioKm = kmCobrados * tarifa.km;
+    const precioTiempo = (minutosCobrados / 60) * tarifa.hora;
+    const precioTraslado = Math.max(precioKm, precioTiempo);
+    const horasExtraCobradas = horasExtra >= 1 ? horasExtra : 0;
+    const precioHorasExtra = horasExtraCobradas * tarifa.hora;
+    const base = Math.max(precioTraslado + precioHorasExtra, tarifa.minima);
+
+    return {
+        base,
+        nivel,
+        esForaneo,
+        usoColchonTrafico,
+        kmCobrados: Math.round(kmCobrados * 10) / 10,
+        minutosCobrados: Math.round(minutosCobrados),
+        precioHorasExtra,
+        horasExtra: horasExtraCobradas,
+        tarifa
+    };
+}
+
+function calcularPrecioTour(km, minutos, horasValle) {
+    const tarifa = TARIFAS.ejecutivo;
+    const precioTraslado = Math.max(km * 2 * tarifa.km, (minutos * 2 / 60) * tarifa.hora);
+    const precioValle = horasValle * tarifa.hora;
+
+    return {
+        base: Math.max(precioTraslado + precioValle, tarifa.minima),
+        nivel: "ejecutivo",
+        tarifa
+    };
+}
+
+function detallePrecioTraslado(km, minutos, idaVuelta, calculo) {
+    const tipo = TARIFAS[calculo.nivel].etiqueta;
+    let texto = "";
+
+    if (idaVuelta) {
+        texto = `${tipo}: ida y vuelta (${km * 2} km, ${minutos * 2} min de manejo).`;
+    } else if (calculo.esForaneo) {
+        texto = `${tipo}: trayecto foráneo solo ida (${km} km), incluye ${Math.round(FORANEO_RETORNO_PORCENTAJE * 100)}% del retorno del vehículo.`;
+    } else if (calculo.usoColchonTrafico) {
+        texto = `${tipo}: traslado local con tiempo ajustado por tráfico en zona fronteriza o playas.`;
+    } else {
+        texto = `${tipo}: traslado de origen a destino.`;
+    }
+
+    if (calculo.horasExtra > 0) {
+        texto += ` Incluye ${calculo.horasExtra} h adicionales.`;
+    }
+
+    return texto;
 }
 
 function formatearFecha(fecha) {
@@ -155,9 +322,10 @@ function calcular(event) {
 
     if (!fecha || !horario) return;
 
-    let base = TARIFA_MINIMA;
+    let base = TARIFAS.ejecutivo.minima;
     let detalle = "";
     let datos = { tipo, fecha, horario };
+    let nivelServicio = "ejecutivo";
 
     if (tipo === "traslado") {
         const origen = document.getElementById("origen").value.trim();
@@ -165,30 +333,29 @@ function calcular(event) {
         const km = parseFloat(document.getElementById("km").value);
         const minutos = parseFloat(document.getElementById("minutos").value);
         const idaVuelta = document.getElementById("idaVuelta").checked;
+        const horasExtra = parseFloat(document.getElementById("horasExtra")?.value) || 0;
 
         if (!origen || !destino || isNaN(km) || isNaN(minutos)) return;
+        if (horasExtra < 0) return;
+        if (horasExtra > 0 && horasExtra < 1) return;
 
-        const factor = idaVuelta ? 2 : 1;
-        const precioKm = km * TARIFA_KM * factor;
-        const precioTiempo = (minutos / 60) * TARIFA_HORA * factor;
-        base = Math.max(precioKm, precioTiempo, TARIFA_MINIMA);
+        nivelServicio = determinarNivelServicio(origen, destino, tipo, km);
+        const calculo = calcularPrecioTraslado(km, minutos, idaVuelta, horasExtra, nivelServicio, origen, destino);
+        base = calculo.base;
 
-        datos = { ...datos, origen, destino, km, minutos, idaVuelta };
-        detalle = idaVuelta
-            ? `Incluye ida y vuelta (${km * 2} km, ${minutos * 2} min).`
-            : "Traslado sencillo de origen a destino.";
-    }
-
-    if (tipo === "horas") {
-        const origen = document.getElementById("origenHoras").value.trim();
-        const zona = document.getElementById("zonaHoras").value.trim();
-        const horas = parseFloat(document.getElementById("horasServicio").value);
-
-        if (!origen || isNaN(horas) || horas < 1) return;
-
-        base = Math.max(horas * TARIFA_HORA, TARIFA_MINIMA);
-        datos = { ...datos, origen, zona, horas };
-        detalle = `Servicio por ${horas} h con vehículo y conductor a disposición.`;
+        datos = {
+            ...datos,
+            origen,
+            destino,
+            km,
+            minutos,
+            idaVuelta,
+            horasExtra: calculo.horasExtra,
+            esForaneo: calculo.esForaneo,
+            nivelServicio,
+            usoColchonTrafico: calculo.usoColchonTrafico
+        };
+        detalle = detallePrecioTraslado(km, minutos, idaVuelta, calculo);
     }
 
     if (tipo === "tour") {
@@ -200,24 +367,24 @@ function calcular(event) {
 
         if (!origen || isNaN(km) || isNaN(minutos) || isNaN(horasValle)) return;
 
-        const precioTraslado = Math.max(km * 2 * TARIFA_KM, (minutos * 2 / 60) * TARIFA_HORA);
-        const precioValle = horasValle * TARIFA_HORA;
-        base = Math.max(precioTraslado + precioValle, TARIFA_MINIMA);
+        nivelServicio = "ejecutivo";
+        const calculoTour = calcularPrecioTour(km, minutos, horasValle);
+        base = calculoTour.base;
 
-        datos = { ...datos, origen, km, minutos, horasValle, vinedos };
-        detalle = `Traslado ida y vuelta (${km * 2} km) + ${horasValle} h en el valle.`;
+        datos = { ...datos, origen, km, minutos, horasValle, vinedos, nivelServicio };
+        detalle = `${TARIFAS.ejecutivo.etiqueta}: traslado ida y vuelta (${km * 2} km) + ${horasValle} h en el valle.`;
     }
 
-    const { minimo, maximo } = calcularRango(base);
+    const { minimo, maximo, confirmado } = calcularRango(base);
     const promedio = Math.round((minimo + maximo) / 2);
     const resultado = document.getElementById("resultado");
     const mostrarMapa = tipo === "traslado" || tipo === "tour";
 
-    resultado.innerHTML = construirResultado(datos, promedio, minimo, maximo, detalle, mostrarMapa);
+    resultado.innerHTML = construirResultado(datos, promedio, minimo, maximo, confirmado, detalle, mostrarMapa);
     resultado.classList.add("visible");
 
     const whatsappBtn = document.getElementById("whatsappBtn");
-    whatsappBtn.href = `https://wa.me/${telefono}?text=${encodeURIComponent(construirMensaje(datos, minimo, maximo))}`;
+    whatsappBtn.href = `https://wa.me/${telefono}?text=${encodeURIComponent(construirMensaje(datos, minimo, maximo, confirmado))}`;
     whatsappBtn.style.display = "flex";
 
     if (mostrarMapa) {
@@ -237,9 +404,11 @@ function calcular(event) {
     }
 }
 
-function construirResultado(datos, promedio, minimo, maximo, detalle, incluirMapa = false) {
+function construirResultado(datos, promedio, minimo, maximo, confirmado, detalle, incluirMapa = false) {
+    const nivel = TARIFAS[datos.nivelServicio || "ejecutivo"];
     const meta = [
         `<div class="result-meta-item">Servicio<strong>${tipoLabels[datos.tipo]}</strong></div>`,
+        `<div class="result-meta-item">Tarifa<strong>${nivel.etiqueta}</strong></div>`,
         `<div class="result-meta-item">Fecha<strong>${formatearFecha(datos.fecha)}</strong></div>`
     ];
 
@@ -248,6 +417,11 @@ function construirResultado(datos, promedio, minimo, maximo, detalle, incluirMap
             `<div class="result-meta-item">Origen<strong>${datos.origen}</strong></div>`,
             `<div class="result-meta-item">Destino<strong>${datos.destino}</strong></div>`
         );
+        if (datos.horasExtra > 0) {
+            meta.push(
+                `<div class="result-meta-item">Horas extra<strong>${datos.horasExtra} h</strong></div>`
+            );
+        }
     }
 
     const mapaHtml = incluirMapa
@@ -272,18 +446,22 @@ function construirResultado(datos, promedio, minimo, maximo, detalle, incluirMap
                     <strong>$${promedio} MXN</strong>
                 </div>
                 <div class="result-price-range">Rango: $${minimo} – $${maximo} MXN</div>
+                <div class="result-price-confirm">Al reservar: hasta <strong>$${confirmado} MXN</strong> (115%)</div>
             </div>
             ${mapaHtml}
             <div class="result-detail-text">${detalle}</div>
+            <p class="result-policy-note">${NOTA_CIERRE_RESERVA}</p>
         </div>
     `;
 }
 
-function construirMensaje(datos, minimo, maximo) {
+function construirMensaje(datos, minimo, maximo, confirmado) {
+    const nivel = TARIFAS[datos.nivelServicio || "ejecutivo"];
     let lineas = [
         "Hola Víctor, me interesa un traslado privado.",
         "",
         `Tipo: ${tipoLabels[datos.tipo]}`,
+        `Tarifa: ${nivel.etiqueta}`,
         `Fecha: ${formatearFecha(datos.fecha)}`,
         `Horario: ${datos.horario}`
     ];
@@ -292,18 +470,22 @@ function construirMensaje(datos, minimo, maximo) {
         lineas.push(
             `Origen: ${datos.origen}`,
             `Destino: ${datos.destino}`,
-            `Distancia: ${datos.km} km`,
-            `Tiempo: ${datos.minutos} min`,
+            `Distancia (ida): ${datos.km} km`,
+            `Tiempo (ida): ${datos.minutos} min`,
             datos.idaVuelta ? "Incluye ida y vuelta" : "Solo ida"
         );
-    }
 
-    if (datos.tipo === "horas") {
-        lineas.push(
-            `Recogida: ${datos.origen}`,
-            `Horas: ${datos.horas} h`
-        );
-        if (datos.zona) lineas.push(`Zona: ${datos.zona}`);
+        if (datos.esForaneo) {
+            lineas.push("Trayecto foráneo (incluye retorno del vehículo)");
+        }
+
+        if (datos.usoColchonTrafico) {
+            lineas.push("Tiempo ajustado por tráfico en zona local");
+        }
+
+        if (datos.horasExtra > 0) {
+            lineas.push(`Horas extra: ${datos.horasExtra} h`);
+        }
     }
 
     if (datos.tipo === "tour") {
@@ -315,7 +497,11 @@ function construirMensaje(datos, minimo, maximo) {
         if (datos.vinedos) lineas.push(`Viñedos: ${datos.vinedos}`);
     }
 
-    lineas.push("", `Estimado: $${minimo} - $${maximo} MXN`);
+    lineas.push(
+        "",
+        `Estimado: $${minimo} - $${maximo} MXN`,
+        `Precio al reservar (115%): $${confirmado} MXN`
+    );
     return lineas.join("\n");
 }
 
@@ -1085,8 +1271,6 @@ async function initPlacesAutocomplete() {
         crearAutocompleteDireccion(document.getElementById("origenTour"), () => {
             if (getTipoServicio() === "tour") calcularRutaAutomatica("tour");
         });
-
-        crearAutocompleteDireccion(document.getElementById("origenHoras"));
     } catch {
         // Sin Places API la captura manual sigue funcionando
     }
@@ -1134,13 +1318,54 @@ function parsearDistancia(response) {
     };
 }
 
-function parsearRuta(result) {
-    const tramo = result.routes[0]?.legs[0];
-    if (!tramo) return null;
+function crearSolicitudDirecciones(origen, destino) {
+    return {
+        origin: normalizarLugar(origen),
+        destination: normalizarLugar(destino),
+        travelMode: google.maps.TravelMode.DRIVING,
+        region: "mx",
+        provideRouteAlternatives: true
+    };
+}
+
+function obtenerDistanciaTotalRuta(ruta) {
+    return ruta.legs.reduce((total, tramo) => total + (tramo.distance?.value || 0), 0);
+}
+
+function seleccionarRutaMasCorta(directionsResult) {
+    if (!directionsResult?.routes?.length) return null;
+
+    let mejorRuta = directionsResult.routes[0];
+    let menorDistancia = obtenerDistanciaTotalRuta(mejorRuta);
+
+    for (let i = 1; i < directionsResult.routes.length; i++) {
+        const distancia = obtenerDistanciaTotalRuta(directionsResult.routes[i]);
+        if (distancia < menorDistancia) {
+            menorDistancia = distancia;
+            mejorRuta = directionsResult.routes[i];
+        }
+    }
 
     return {
-        km: Math.round(tramo.distance.value / 100) / 10,
-        minutos: Math.max(1, Math.round(tramo.duration.value / 60)),
+        ...directionsResult,
+        routes: [mejorRuta]
+    };
+}
+
+function parsearRuta(result) {
+    const optimizado = seleccionarRutaMasCorta(result);
+    const ruta = optimizado?.routes[0];
+    if (!ruta?.legs?.length) return null;
+
+    const distanciaTotal = obtenerDistanciaTotalRuta(ruta);
+    const duracionTotal = ruta.legs.reduce(
+        (total, tramo) => total + (tramo.duration?.value || 0),
+        0
+    );
+
+    return {
+        km: Math.round(distanciaTotal / 100) / 10,
+        minutos: Math.max(1, Math.round(duracionTotal / 60)),
         conTrafico: false
     };
 }
@@ -1178,15 +1403,17 @@ async function obtenerRutaOSRM(origen, destino) {
     ]);
 
     const coords = `${origenCoords.lon},${origenCoords.lat};${destinoCoords.lon},${destinoCoords.lat}`;
-    const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=false`;
+    const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=false&alternatives=3`;
     const respuesta = await fetch(url);
 
     if (!respuesta.ok) throw new Error("OSRM_ROUTE_FAILED");
 
     const data = await respuesta.json();
-    if (data.code !== "Ok" || !data.routes?.[0]) throw new Error("OSRM_NO_ROUTE");
+    if (data.code !== "Ok" || !data.routes?.length) throw new Error("OSRM_NO_ROUTE");
 
-    const ruta = data.routes[0];
+    const ruta = data.routes.reduce((mejor, actual) =>
+        actual.distance < mejor.distance ? actual : mejor
+    );
     return {
         km: Math.round(ruta.distance / 100) / 10,
         minutos: Math.max(1, Math.round(ruta.duration / 60)),
@@ -1199,15 +1426,12 @@ async function obtenerRutaGoogle(origen, destino) {
 
     const origenNorm = normalizarLugar(origen);
     const destinoNorm = normalizarLugar(destino);
-    const request = {
-        origin: origenNorm,
-        destination: destinoNorm,
-        travelMode: google.maps.TravelMode.DRIVING,
-        region: "mx"
-    };
 
     const directionsService = new google.maps.DirectionsService();
-    const dirResp = await solicitarDirecciones(directionsService, request);
+    const dirResp = await solicitarDirecciones(
+        directionsService,
+        crearSolicitudDirecciones(origen, destino)
+    );
 
     if (dirResp.status === google.maps.DirectionsStatus.OK) {
         const rutaDir = parsearRuta(dirResp.result);
@@ -1260,7 +1484,7 @@ function mensajeRutaOk(ruta, prefijo = "Ruta estimada") {
     if (ruta.fuente === "osrm") {
         return `${prefijo} (aprox., OpenStreetMap): ${ruta.km} km · ${ruta.minutos} min`;
     }
-    const trafico = ruta.conTrafico ? "con tráfico" : "sin tráfico en vivo";
+    const trafico = ruta.conTrafico ? "con tráfico" : "ruta más corta";
     return `${prefijo} (Google Maps, ${trafico}): ${ruta.km} km · ${ruta.minutos} min`;
 }
 

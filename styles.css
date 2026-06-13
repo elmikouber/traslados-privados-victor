@@ -978,6 +978,14 @@ h1, h2, h3 {
     outline-offset: -2px;
 }
 
+.label-optional {
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.72em;
+}
+
 .hidden-fields {
     display: none;
 }
@@ -1037,11 +1045,40 @@ h1, h2, h3 {
     background: var(--gold);
 }
 
+.form-hint {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+    margin: 6px 0 0;
+}
+
 .rate-cards {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 10px;
     margin: 20px 0 18px;
+}
+
+.rate-cards-dual {
+    grid-template-columns: 1fr;
+    gap: 14px;
+}
+
+.rate-card-group-label {
+    display: block;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+
+.rate-card-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
 }
 
 .rate-card {
@@ -1066,6 +1103,14 @@ h1, h2, h3 {
     font-family: 'Playfair Display', serif;
     font-size: 1.15rem;
     color: var(--gold);
+}
+
+.rate-policy-note {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin: -6px 0 16px;
+    text-align: center;
 }
 
 .btn-calc {
@@ -1172,6 +1217,27 @@ h1, h2, h3 {
     font-size: 0.78rem;
     color: var(--text-muted);
     margin-top: 8px;
+}
+
+.result-price-confirm {
+    font-size: 0.76rem;
+    color: var(--gold);
+    margin-top: 10px;
+    line-height: 1.45;
+}
+
+.result-price-confirm strong {
+    color: var(--gold-light);
+}
+
+.result-policy-note {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    text-align: center;
+    line-height: 1.5;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(212, 175, 55, 0.1);
 }
 
 .result-meta {
@@ -2061,6 +2127,11 @@ h1, h2, h3 {
     }
 
     .rate-cards {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .rate-card-row {
         grid-template-columns: 1fr;
         gap: 8px;
     }

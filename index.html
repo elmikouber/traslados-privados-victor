@@ -292,19 +292,20 @@
 
                         <div class="service-tabs" role="tablist">
                             <button type="button" class="tab-btn active" data-tipo="traslado" role="tab">Punto a punto</button>
-                            <button type="button" class="tab-btn" data-tipo="horas" role="tab">Por horas</button>
                             <button type="button" class="tab-btn" data-tipo="tour" role="tab">Tour valle</button>
                         </div>
 
                         <div class="form-fields">
-                            <div class="form-group address-autocomplete-wrap">
-                                <label for="origen">Origen</label>
-                                <input type="text" id="origen" placeholder="Ej. Aeropuerto de Tijuana" autocomplete="off">
-                            </div>
+                            <div id="camposOrigenDestino">
+                                <div class="form-group address-autocomplete-wrap">
+                                    <label for="origen">Origen</label>
+                                    <input type="text" id="origen" placeholder="Ej. Aeropuerto de Tijuana" autocomplete="off">
+                                </div>
 
-                            <div class="form-group address-autocomplete-wrap">
-                                <label for="destino">Destino</label>
-                                <input type="text" id="destino" placeholder="Ej. Rosarito, Ensenada, Mexicali, Garita San Ysidro" autocomplete="off">
+                                <div class="form-group address-autocomplete-wrap">
+                                    <label for="destino">Destino</label>
+                                    <input type="text" id="destino" placeholder="Ej. Rosarito, Ensenada, Mexicali, Garita San Ysidro" autocomplete="off">
+                                </div>
                             </div>
 
                             <div class="form-row">
@@ -324,6 +325,11 @@
                                     <span class="toggle-switch"></span>
                                     Ida y vuelta
                                 </label>
+                                <div class="form-group">
+                                    <label for="horasExtra">Horas extra <span class="label-optional">(opcional)</span></label>
+                                    <input type="number" id="horasExtra" value="0" min="0" step="1" placeholder="0">
+                                    <p class="form-hint">Agrega 1 h o más si necesitan parada adicional (banco, trámite, etc.). Los detalles se confirman al reservar.</p>
+                                </div>
                                 <div class="form-row">
                                     <div class="form-group">
                                         <label for="km">Distancia (km)</label>
@@ -337,24 +343,9 @@
                                 <p class="route-status" id="routeStatus" aria-live="polite"></p>
                             </div>
 
-                            <div id="camposHoras" class="form-extra hidden-fields">
-                                <div class="form-group address-autocomplete-wrap">
-                                    <label for="origenHoras">Punto de recogida</label>
-                                    <input type="text" id="origenHoras" placeholder="Ej. Hotel en Tijuana" autocomplete="off">
-                                </div>
-                                <div class="form-group">
-                                    <label for="zonaHoras">Zona o actividad</label>
-                                    <input type="text" id="zonaHoras" placeholder="Ej. Reuniones, evento">
-                                </div>
-                                <div class="form-group">
-                                    <label for="horasServicio">Horas de servicio</label>
-                                    <input type="number" id="horasServicio" value="2" min="1" step="0.5">
-                                </div>
-                            </div>
-
                             <div id="camposTour" class="form-extra hidden-fields">
                                 <div class="form-group address-autocomplete-wrap">
-                                    <label for="origenTour">Punto de recogida</label>
+                                    <label for="origenTour">Dirección de recogida</label>
                                     <input type="text" id="origenTour" placeholder="Ej. Hotel en Tijuana" autocomplete="off">
                                 </div>
                                 <div class="form-row">
@@ -384,20 +375,44 @@
                             </div>
                         </div>
 
-                        <div class="rate-cards">
-                            <div class="rate-card">
-                                <span>Tarifa mínima</span>
-                                <strong>$150</strong>
+                        <div class="rate-cards rate-cards-dual">
+                            <div class="rate-card-group">
+                                <span class="rate-card-group-label">Local · Tijuana, Rosarito, Playas, Tecate, garitas</span>
+                                <div class="rate-card-row">
+                                    <div class="rate-card">
+                                        <span>Mínimo</span>
+                                        <strong>$120</strong>
+                                    </div>
+                                    <div class="rate-card">
+                                        <span>Por km</span>
+                                        <strong>$10</strong>
+                                    </div>
+                                    <div class="rate-card">
+                                        <span>Por hora</span>
+                                        <strong>$250</strong>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="rate-card">
-                                <span>Por km</span>
-                                <strong>$14</strong>
-                            </div>
-                            <div class="rate-card">
-                                <span>Por hora</span>
-                                <strong>$300</strong>
+                            <div class="rate-card-group">
+                                <span class="rate-card-group-label">Premium · Ensenada, Mexicali, Valle y programados</span>
+                                <div class="rate-card-row">
+                                    <div class="rate-card">
+                                        <span>Mínimo</span>
+                                        <strong>$150</strong>
+                                    </div>
+                                    <div class="rate-card">
+                                        <span>Por km</span>
+                                        <strong>$14</strong>
+                                    </div>
+                                    <div class="rate-card">
+                                        <span>Por hora</span>
+                                        <strong>$300</strong>
+                                    </div>
+                                </div>
                             </div>
                         </div>
+
+                        <p class="rate-policy-note">Al reservar se confirma hasta el 115% del estimado. Aplica en traslado local y programado premium.</p>
 
                         <button type="submit" class="btn btn-gold btn-full btn-calc">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h8M8 14h4"/></svg>
@@ -487,10 +502,6 @@
             <a href="tel:+526648196809">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
                 +52 664 819 6809
-            </a>
-            <a href="mailto:viajesprivadosvictor@gmail.com">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="M22 6l-10 7L2 6"/></svg>
-                viajesprivadosvictor@gmail.com
             </a>
             <span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
