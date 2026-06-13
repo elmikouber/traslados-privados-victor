@@ -897,6 +897,8 @@ function crearAutocompleteDireccion(input, alSeleccionar) {
     );
 
     let debounceTimer = null;
+    let blurOcultarTimer = null;
+    let ultimaSeleccion = 0;
     let predictions = [];
     let activeIndex = -1;
     let sessionToken = new google.maps.places.AutocompleteSessionToken();
@@ -905,7 +907,17 @@ function crearAutocompleteDireccion(input, alSeleccionar) {
         placesAutocompleteService = new google.maps.places.AutocompleteService();
     }
 
+    function cancelarOcultarSugerencias() {
+        clearTimeout(blurOcultarTimer);
+    }
+
+    function programarOcultarSugerencias() {
+        cancelarOcultarSugerencias();
+        blurOcultarTimer = setTimeout(ocultarSugerencias, 400);
+    }
+
     function ocultarSugerencias() {
+        cancelarOcultarSugerencias();
         dropdown.hidden = true;
         dropdown.innerHTML = "";
         activeIndex = -1;
@@ -919,6 +931,11 @@ function crearAutocompleteDireccion(input, alSeleccionar) {
     }
 
     function seleccionarPrediccion(prediction) {
+        const ahora = Date.now();
+        if (ahora - ultimaSeleccion < 400) return;
+        ultimaSeleccion = ahora;
+
+        cancelarOcultarSugerencias();
         const placesService = obtenerPlacesService();
 
         placesService.getDetails(
@@ -934,12 +951,33 @@ function crearAutocompleteDireccion(input, alSeleccionar) {
                     input.value = prediction.description;
                 }
 
+                input.dispatchEvent(new Event("change", { bubbles: true }));
                 sessionToken = new google.maps.places.AutocompleteSessionToken();
                 ocultarSugerencias();
                 clearTimeout(routeDebounceTimer);
+                input.blur();
                 alSeleccionar?.();
             }
         );
+    }
+
+    function enlazarSeleccionItem(item, prediction) {
+        const activarSeleccion = (evento) => {
+            evento.preventDefault();
+            evento.stopPropagation();
+            cancelarOcultarSugerencias();
+            seleccionarPrediccion(prediction);
+        };
+
+        item.addEventListener("pointerdown", (evento) => {
+            cancelarOcultarSugerencias();
+            if (evento.pointerType === "mouse") {
+                evento.preventDefault();
+            }
+        });
+
+        item.addEventListener("pointerup", activarSeleccion);
+        item.addEventListener("touchend", activarSeleccion, { passive: false });
     }
 
     function mostrarSugerencias(resultados) {
@@ -953,23 +991,17 @@ function crearAutocompleteDireccion(input, alSeleccionar) {
             item.className = "address-suggestion-item";
             item.setAttribute("role", "option");
             item.textContent = prediction.description;
-
-            item.addEventListener("mousedown", (evento) => {
-                evento.preventDefault();
-            });
-
-            item.addEventListener("touchstart", (evento) => {
-                evento.preventDefault();
-            }, { passive: false });
-
-            item.addEventListener("click", () => {
-                seleccionarPrediccion(prediction);
-            });
-
+            enlazarSeleccionItem(item, prediction);
             dropdown.appendChild(item);
         });
 
         dropdown.hidden = false;
+
+        requestAnimationFrame(() => {
+            if (!dropdown.hidden && window.matchMedia("(max-width: 768px)").matches) {
+                dropdown.scrollIntoView({ block: "nearest", behavior: "smooth" });
+            }
+        });
     }
 
     function buscarSugerencias(texto) {
@@ -995,6 +1027,15 @@ function crearAutocompleteDireccion(input, alSeleccionar) {
             }
         );
     }
+
+    input.addEventListener("focus", () => {
+        cancelarOcultarSugerencias();
+        if (window.matchMedia("(max-width: 768px)").matches) {
+            setTimeout(() => {
+                input.scrollIntoView({ block: "center", behavior: "smooth" });
+            }, 320);
+        }
+    });
 
     input.addEventListener("input", () => {
         clearTimeout(debounceTimer);
@@ -1023,15 +1064,10 @@ function crearAutocompleteDireccion(input, alSeleccionar) {
         }
     });
 
-    input.addEventListener("blur", () => {
-        setTimeout(ocultarSugerencias, 180);
-    });
+    input.addEventListener("blur", programarOcultarSugerencias);
 
-    document.addEventListener("click", (evento) => {
-        if (!wrapper.contains(evento.target)) {
-            ocultarSugerencias();
-        }
-    });
+    dropdown.addEventListener("pointerdown", cancelarOcultarSugerencias);
+    dropdown.addEventListener("touchstart", cancelarOcultarSugerencias, { passive: true });
 }
 
 async function initPlacesAutocomplete() {
