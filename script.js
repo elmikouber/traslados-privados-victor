@@ -2,9 +2,12 @@ const telefono = "526648196809";
 
 const TARIFAS = {
     estandar: {
-        km: 10,
+        kmMadrugada: 17,
+        kmPico: 15,
+        kmDia: 12,
         hora: 250,
         minima: 120,
+        minimaDia: 140,
         etiqueta: "Traslado local",
         etiquetaCorta: "Local"
     },
@@ -19,9 +22,11 @@ const TARIFAS = {
 
 const KM_FORANEO_UMBRAL = 60;
 const FORANEO_RETORNO_PORCENTAJE = 0.6;
-const MINUTOS_COLCHON_TRAFICO = 45;
-const HORARIO_ESPECIAL_HASTA_HORA = 5;
-const RECARGO_HORARIO_ESPECIAL = 0.3;
+const HORARIO_MADRUGADA_HASTA_HORA = 5;
+const HORARIO_PICO_HASTA_HORA = 8;
+const KM_TRAMO_1_MAX = 20;
+const KM_TRAMO_2_MAX = 30;
+const KM_ESCALON_DESCUENTO = 3;
 
 const PATRONES_UBICACION_FORANEA = [
     /ensenada/i,
@@ -44,16 +49,8 @@ const PATRONES_UBICACION_LOCAL = [
     /\btij\b/i
 ];
 
-const PATRONES_TRAFICO_INTENSO = [
-    /playas/i,
-    /garita/i,
-    /san ysidro/i,
-    /ysidro/i,
-    /otay/i
-];
-
 const NOTA_CIERRE_RESERVA =
-    "Al reservar se confirma hasta el monto máximo del rango (115%). Pueden aplicar ajustes por espera prolongada o cambio de destino.";
+    "Cotización estimada. El monto final se confirma contigo al reservar.";
 
 const tipoLabels = {
     traslado: "Traslado punto a punto",
@@ -190,13 +187,84 @@ function calcularRango(base) {
     };
 }
 
-function esHorarioEspecial(horario) {
-    if (!horario) return false;
+function parsearHorario(horario) {
+    if (!horario) return null;
 
     const [horas, minutos] = horario.split(":").map(Number);
-    if (isNaN(horas) || isNaN(minutos)) return false;
+    if (isNaN(horas) || isNaN(minutos)) return null;
 
-    return horas >= 0 && horas < HORARIO_ESPECIAL_HASTA_HORA;
+    return { horas, minutos };
+}
+
+function resolverTarifaLocal(horario) {
+    const parsed = parsearHorario(horario);
+    const horas = parsed?.horas;
+    const tarifa = TARIFAS.estandar;
+
+    if (horas !== undefined && horas < HORARIO_MADRUGADA_HASTA_HORA) {
+        return {
+            franja: "madrugada",
+            km: tarifa.kmMadrugada,
+            minima: tarifa.minima,
+            etiqueta: "Madrugada"
+        };
+    }
+
+    if (horas !== undefined && horas < HORARIO_PICO_HASTA_HORA) {
+        return {
+            franja: "pico",
+            km: tarifa.kmPico,
+            minima: tarifa.minima,
+            etiqueta: "Pico matutino"
+        };
+    }
+
+    return {
+        franja: "dia",
+        km: tarifa.kmDia,
+        minima: tarifa.minimaDia,
+        etiqueta: "Horario diurno"
+    };
+}
+
+function calcularCostoKmEscalonado(km, tarifaBase) {
+    const tarifa2 = tarifaBase - KM_ESCALON_DESCUENTO;
+    const tarifa3 = tarifaBase - KM_ESCALON_DESCUENTO * 2;
+    const tramos = [];
+    let restante = Math.max(0, km);
+    let costo = 0;
+
+    const km1 = Math.min(restante, KM_TRAMO_1_MAX);
+    if (km1 > 0) {
+        tramos.push({ km: km1, tarifa: tarifaBase });
+        costo += km1 * tarifaBase;
+        restante -= km1;
+    }
+
+    const km2 = Math.min(restante, KM_TRAMO_2_MAX - KM_TRAMO_1_MAX);
+    if (km2 > 0) {
+        tramos.push({ km: km2, tarifa: tarifa2 });
+        costo += km2 * tarifa2;
+        restante -= km2;
+    }
+
+    if (restante > 0) {
+        tramos.push({ km: restante, tarifa: tarifa3 });
+        costo += restante * tarifa3;
+    }
+
+    return { costo, tramos };
+}
+
+function formatearDesgloseKm(tramos) {
+    if (!tramos?.length) return "";
+
+    return tramos
+        .map((tramo) => {
+            const kmTexto = Number.isInteger(tramo.km) ? String(tramo.km) : (Math.round(tramo.km * 10) / 10).toString();
+            return `${kmTexto} km × $${tramo.tarifa}`;
+        })
+        .join(" + ");
 }
 
 function formatearHorario12h(horario) {
@@ -211,20 +279,35 @@ function formatearHorario12h(horario) {
     return `${hora12}:${String(minutos).padStart(2, "0")} ${periodo}`;
 }
 
-function aplicarRecargoHorarioEspecial(base, horario) {
-    if (!esHorarioEspecial(horario)) {
-        return {
-            base,
-            esHorarioEspecial: false,
-            recargoPorcentaje: 0
-        };
+function obtenerEtiquetaFranjaPublica(franja) {
+    if (franja === "madrugada") {
+        return "Horario de madrugada — servicio programado";
     }
 
-    return {
-        base: Math.round(base * (1 + RECARGO_HORARIO_ESPECIAL)),
-        esHorarioEspecial: true,
-        recargoPorcentaje: RECARGO_HORARIO_ESPECIAL
-    };
+    if (franja === "pico") {
+        return "Horario matutino de alta demanda";
+    }
+
+    if (franja === "dia") {
+        return "Horario diurno";
+    }
+
+    return "";
+}
+
+function obtenerFechaSalidaProgramada() {
+    const fecha = document.getElementById("fecha")?.value;
+    const horario = document.getElementById("horario")?.value;
+    if (!fecha || !horario) return null;
+
+    const [anio, mes, dia] = fecha.split("-").map(Number);
+    const parsed = parsearHorario(horario);
+    if (!parsed) return null;
+
+    const salida = new Date(anio, mes - 1, dia, parsed.horas, parsed.minutos, 0);
+    if (salida.getTime() <= Date.now()) return null;
+
+    return salida;
 }
 
 function textoUbicacion(texto) {
@@ -263,29 +346,28 @@ function determinarNivelServicio(origen, destino, tipoServicio, km = null) {
     return "ejecutivo";
 }
 
-function requiereColchonTrafico(origen, destino) {
-    const texto = `${origen} ${destino}`;
-    return PATRONES_TRAFICO_INTENSO.some((patron) => patron.test(textoUbicacion(texto)));
-}
-
-function ajustarMinutosColchon(minutos, origen, destino, nivel) {
-    if (nivel !== "estandar" || !requiereColchonTrafico(origen, destino)) {
-        return minutos;
-    }
-
-    return Math.max(minutos, MINUTOS_COLCHON_TRAFICO);
-}
-
-function calcularPrecioTraslado(km, minutos, idaVuelta, horasExtra, nivel, origen = "", destino = "") {
+function calcularPrecioTraslado(
+    km,
+    minutos,
+    idaVuelta,
+    horasExtra,
+    nivel,
+    origen = "",
+    destino = "",
+    horario = ""
+) {
     const tarifa = TARIFAS[nivel];
+    const tarifaLocal = nivel === "estandar" ? resolverTarifaLocal(horario) : null;
+    const tarifaKm = tarifaLocal ? tarifaLocal.km : tarifa.km;
+    const tarifaMinima = tarifaLocal ? tarifaLocal.minima : tarifa.minima;
+
     let kmCobrados = km;
-    let minutosCobrados = ajustarMinutosColchon(minutos, origen, destino, nivel);
+    let minutosCobrados = minutos;
     let esForaneo = false;
-    let usoColchonTrafico = minutosCobrados > minutos;
 
     if (idaVuelta) {
         kmCobrados = km * 2;
-        minutosCobrados = ajustarMinutosColchon(minutos * 2, origen, destino, nivel);
+        minutosCobrados = minutos * 2;
     } else if (nivel === "ejecutivo" && km > KM_FORANEO_UMBRAL) {
         const factorRetorno = 1 + FORANEO_RETORNO_PORCENTAJE;
         kmCobrados = km * factorRetorno;
@@ -293,18 +375,32 @@ function calcularPrecioTraslado(km, minutos, idaVuelta, horasExtra, nivel, orige
         esForaneo = true;
     }
 
-    const precioKm = kmCobrados * tarifa.km;
+    let precioKm;
+    let desgloseKm = null;
+    if (tarifaLocal) {
+        const escalonKm = calcularCostoKmEscalonado(kmCobrados, tarifaKm);
+        precioKm = escalonKm.costo;
+        if (escalonKm.tramos.length > 1) {
+            desgloseKm = formatearDesgloseKm(escalonKm.tramos);
+        }
+    } else {
+        precioKm = kmCobrados * tarifaKm;
+    }
     const precioTiempo = (minutosCobrados / 60) * tarifa.hora;
     const precioTraslado = Math.max(precioKm, precioTiempo);
     const horasExtraCobradas = horasExtra >= 1 ? horasExtra : 0;
     const precioHorasExtra = horasExtraCobradas * tarifa.hora;
-    const base = Math.max(precioTraslado + precioHorasExtra, tarifa.minima);
+    const base = Math.max(precioTraslado + precioHorasExtra, tarifaMinima);
 
     return {
         base,
         nivel,
         esForaneo,
-        usoColchonTrafico,
+        franjaHorario: tarifaLocal?.franja || null,
+        etiquetaFranja: tarifaLocal?.etiqueta || null,
+        tarifaKm,
+        desgloseKm,
+        tarifaMinima,
         kmCobrados: Math.round(kmCobrados * 10) / 10,
         minutosCobrados: Math.round(minutosCobrados),
         precioHorasExtra,
@@ -327,20 +423,24 @@ function calcularPrecioTour(km, minutos, horasValle) {
 
 function detallePrecioTraslado(km, minutos, idaVuelta, calculo) {
     const tipo = TARIFAS[calculo.nivel].etiqueta;
-    let texto = "";
+    let texto = "Traslado privado programado, puerta a puerta.";
 
     if (idaVuelta) {
         texto = `${tipo}: traslado ida y vuelta.`;
     } else if (calculo.esForaneo) {
         texto = `${tipo}: trayecto foráneo solo ida, incluye retorno del vehículo.`;
-    } else if (calculo.usoColchonTrafico) {
-        texto = `${tipo}: traslado en zona metropolitana.`;
-    } else {
+    } else if (tipo !== TARIFAS.estandar.etiqueta) {
         texto = `${tipo}: traslado de origen a destino.`;
     }
 
     if (calculo.horasExtra > 0) {
         texto += ` Incluye ${calculo.horasExtra} h adicionales.`;
+    }
+
+    if (calculo.franjaHorario === "madrugada") {
+        texto += " Servicio programado con chofer descansado y vehículo garantizado.";
+    } else if (calculo.franjaHorario === "pico") {
+        texto += " Horario matutino de alta demanda.";
     }
 
     return texto;
@@ -414,8 +514,11 @@ function construirMensaje(datos, promedio, minimo, maximo, confirmado) {
         `• Horario: ${formatearHorario12h(datos.horario)}`
     ];
 
-    if (datos.esHorarioEspecial) {
-        lineas.push("• Horario especial madrugada: +30%");
+    if (datos.franjaHorario && datos.franjaHorario !== "dia" && datos.nivelServicio === "estandar") {
+        const etiquetaPublica = obtenerEtiquetaFranjaPublica(datos.franjaHorario);
+        if (etiquetaPublica) {
+            lineas.push(`• ${etiquetaPublica}`);
+        }
     }
 
     lineas.push("");
@@ -458,8 +561,8 @@ function construirMensaje(datos, promedio, minimo, maximo, confirmado) {
         "",
         "💰 COTIZACIÓN ESTIMADA",
         `• Referencia: $${promedio} MXN`,
-        `• Rango: $${minimo} – $${maximo} MXN`,
-        `• Al reservar (hasta 115%): $${confirmado} MXN`,
+        `• Rango estimado: $${minimo} – $${maximo} MXN`,
+        `• Al reservar: hasta $${confirmado} MXN`,
         "",
         "━━━━━━━━━━━━━━━━━━",
         "Hola Víctor, me interesa confirmar este traslado.",
@@ -496,7 +599,16 @@ function calcular(event) {
         if (horasExtra > 0 && horasExtra < 1) return;
 
         nivelServicio = determinarNivelServicio(origen, destino, tipo, km);
-        const calculo = calcularPrecioTraslado(km, minutos, idaVuelta, horasExtra, nivelServicio, origen, destino);
+        const calculo = calcularPrecioTraslado(
+            km,
+            minutos,
+            idaVuelta,
+            horasExtra,
+            nivelServicio,
+            origen,
+            destino,
+            horario
+        );
         base = calculo.base;
 
         datos = {
@@ -511,7 +623,11 @@ function calcular(event) {
             horasExtra: calculo.horasExtra,
             esForaneo: calculo.esForaneo,
             nivelServicio,
-            usoColchonTrafico: calculo.usoColchonTrafico
+            franjaHorario: calculo.franjaHorario,
+            etiquetaFranja: calculo.etiquetaFranja,
+            tarifaKm: calculo.tarifaKm,
+            desgloseKm: calculo.desgloseKm,
+            tarifaMinima: calculo.tarifaMinima
         };
         detalle = detallePrecioTraslado(km, minutos, idaVuelta, calculo);
     }
@@ -542,15 +658,6 @@ function calcular(event) {
             nivelServicio
         };
         detalle = `${TARIFAS.ejecutivo.etiqueta}: tour con ${horasValle} h en el valle.`;
-    }
-
-    const recargoHorario = aplicarRecargoHorarioEspecial(base, horario);
-    base = recargoHorario.base;
-    datos.esHorarioEspecial = recargoHorario.esHorarioEspecial;
-    datos.recargoHorarioEspecial = recargoHorario.recargoPorcentaje;
-
-    if (recargoHorario.esHorarioEspecial) {
-        detalle = `${detalle} Incluye recargo por horario especial madrugada (+30%).`.trim();
     }
 
     const { minimo, maximo, confirmado } = calcularRango(base);
@@ -591,12 +698,6 @@ function construirResultado(datos, promedio, minimo, maximo, confirmado, detalle
         `<div class="result-meta-item">Horario<strong>${formatearHorario12h(datos.horario)}</strong></div>`
     ];
 
-    if (datos.esHorarioEspecial) {
-        meta.push(
-            `<div class="result-meta-item">Recargo madrugada<strong>+30%</strong></div>`
-        );
-    }
-
     if (datos.tipo === "traslado") {
         meta.push(
             `<div class="result-meta-item">Origen<strong>${datos.origen}</strong></div>`,
@@ -630,8 +731,8 @@ function construirResultado(datos, promedio, minimo, maximo, confirmado, detalle
                 <div class="result-price-main">
                     <strong>$${promedio} MXN</strong>
                 </div>
-                <div class="result-price-range">Rango: $${minimo} – $${maximo} MXN</div>
-                <div class="result-price-confirm">Al reservar: hasta <strong>$${confirmado} MXN</strong> (115%)</div>
+                <div class="result-price-range">Rango estimado: $${minimo} – $${maximo} MXN</div>
+                <div class="result-price-confirm">Al reservar: hasta <strong>$${confirmado} MXN</strong></div>
             </div>
             ${mapaHtml}
             <div class="result-detail-text">${detalle}</div>
@@ -1433,23 +1534,25 @@ async function initPlacesAutocomplete() {
     }
 }
 
-function solicitarDistancia(matrixService, origen, destino) {
+function solicitarDistancia(matrixService, origen, destino, fechaSalida = null) {
     return new Promise((resolve, reject) => {
         const timeoutId = setTimeout(() => reject(new Error("ROUTE_TIMEOUT")), GOOGLE_ROUTE_TIMEOUT_MS);
+        const request = {
+            origins: [origen],
+            destinations: [destino],
+            travelMode: google.maps.TravelMode.DRIVING,
+            region: "MX",
+            unitSystem: google.maps.UnitSystem.METRIC
+        };
 
-        matrixService.getDistanceMatrix(
-            {
-                origins: [origen],
-                destinations: [destino],
-                travelMode: google.maps.TravelMode.DRIVING,
-                region: "MX",
-                unitSystem: google.maps.UnitSystem.METRIC
-            },
-            (response, status) => {
-                clearTimeout(timeoutId);
-                resolve({ response, status });
-            }
-        );
+        if (fechaSalida) {
+            request.drivingOptions = { departureTime: fechaSalida };
+        }
+
+        matrixService.getDistanceMatrix(request, (response, status) => {
+            clearTimeout(timeoutId);
+            resolve({ response, status });
+        });
     });
 }
 
@@ -1468,21 +1571,29 @@ function parsearDistancia(response) {
     const elemento = response.rows[0]?.elements[0];
     if (!elemento || elemento.status !== "OK") return null;
 
+    const duracion = elemento.duration_in_traffic?.value ?? elemento.duration?.value ?? 0;
+
     return {
         km: Math.round(elemento.distance.value / 100) / 10,
-        minutos: Math.max(1, Math.round(elemento.duration.value / 60)),
-        conTrafico: false
+        minutos: Math.max(1, Math.round(duracion / 60)),
+        conTrafico: Boolean(elemento.duration_in_traffic?.value)
     };
 }
 
-function crearSolicitudDirecciones(origen, destino) {
-    return {
+function crearSolicitudDirecciones(origen, destino, fechaSalida = null) {
+    const request = {
         origin: normalizarLugar(origen),
         destination: normalizarLugar(destino),
         travelMode: google.maps.TravelMode.DRIVING,
         region: "mx",
         provideRouteAlternatives: true
     };
+
+    if (fechaSalida) {
+        request.drivingOptions = { departureTime: fechaSalida };
+    }
+
+    return request;
 }
 
 function obtenerDistanciaTotalRuta(ruta) {
@@ -1515,15 +1626,16 @@ function parsearRuta(result) {
     if (!ruta?.legs?.length) return null;
 
     const distanciaTotal = obtenerDistanciaTotalRuta(ruta);
-    const duracionTotal = ruta.legs.reduce(
-        (total, tramo) => total + (tramo.duration?.value || 0),
-        0
-    );
+    const duracionTotal = ruta.legs.reduce((total, tramo) => {
+        const duracion = tramo.duration_in_traffic?.value ?? tramo.duration?.value ?? 0;
+        return total + duracion;
+    }, 0);
+    const conTrafico = ruta.legs.some((tramo) => Boolean(tramo.duration_in_traffic?.value));
 
     return {
         km: Math.round(distanciaTotal / 100) / 10,
         minutos: Math.max(1, Math.round(duracionTotal / 60)),
-        conTrafico: false
+        conTrafico
     };
 }
 
@@ -1578,7 +1690,7 @@ async function obtenerRutaOSRM(origen, destino) {
     };
 }
 
-async function obtenerRutaGoogle(origen, destino) {
+async function obtenerRutaGoogle(origen, destino, fechaSalida = null) {
     await cargarGoogleMaps();
 
     const origenNorm = normalizarLugar(origen);
@@ -1587,7 +1699,7 @@ async function obtenerRutaGoogle(origen, destino) {
     const directionsService = new google.maps.DirectionsService();
     const dirResp = await solicitarDirecciones(
         directionsService,
-        crearSolicitudDirecciones(origen, destino)
+        crearSolicitudDirecciones(origen, destino, fechaSalida)
     );
 
     if (dirResp.status === google.maps.DirectionsStatus.OK) {
@@ -1600,7 +1712,7 @@ async function obtenerRutaGoogle(origen, destino) {
     }
 
     const matrixService = new google.maps.DistanceMatrixService();
-    const matrixResp = await solicitarDistancia(matrixService, origenNorm, destinoNorm);
+    const matrixResp = await solicitarDistancia(matrixService, origenNorm, destinoNorm, fechaSalida);
 
     if (matrixResp.status === google.maps.DistanceMatrixStatus.OK) {
         const rutaMatrix = parsearDistancia(matrixResp.response);
@@ -1617,9 +1729,9 @@ async function obtenerRutaGoogle(origen, destino) {
     throw new Error(`ROUTE_${codigo}`);
 }
 
-async function obtenerRuta(origen, destino) {
+async function obtenerRuta(origen, destino, fechaSalida = null) {
     try {
-        const ruta = await obtenerRutaGoogle(origen, destino);
+        const ruta = await obtenerRutaGoogle(origen, destino, fechaSalida);
         return { ...ruta, fuente: "google" };
     } catch (errorGoogle) {
         try {
@@ -1664,7 +1776,8 @@ async function calcularRutaAutomatica(tipo) {
         setRouteStatus(status, "Calculando ruta...", "is-loading");
 
         try {
-            const ruta = await obtenerRuta(origen, destino);
+            const fechaSalida = obtenerFechaSalidaProgramada();
+            const ruta = await obtenerRuta(origen, destino, fechaSalida);
             if (requestId !== routeRequestCounter) return;
 
             if (!ruta) {
@@ -1673,7 +1786,8 @@ async function calcularRutaAutomatica(tipo) {
             }
 
             llenarCamposRuta(kmInput, minInput, ruta);
-            setRouteStatus(status, mensajeRutaOk(ruta), "is-ok");
+            const notaHorario = fechaSalida ? " para tu horario programado" : "";
+            setRouteStatus(status, `${mensajeRutaOk(ruta)}${notaHorario}`, "is-ok");
         } catch (error) {
             if (requestId !== routeRequestCounter) return;
             setRouteStatus(status, mensajeErrorRuta(error), "is-error");
@@ -1695,7 +1809,8 @@ async function calcularRutaAutomatica(tipo) {
         setRouteStatus(status, "Calculando ruta al valle...", "is-loading");
 
         try {
-            const ruta = await obtenerRuta(origen, VALLE_DESTINO);
+            const fechaSalida = obtenerFechaSalidaProgramada();
+            const ruta = await obtenerRuta(origen, VALLE_DESTINO, fechaSalida);
             if (requestId !== routeRequestCounter) return;
 
             if (!ruta) {
@@ -1704,7 +1819,8 @@ async function calcularRutaAutomatica(tipo) {
             }
 
             llenarCamposRuta(kmInput, minInput, ruta);
-            setRouteStatus(status, mensajeRutaOk(ruta, "Ruta al valle"), "is-ok");
+            const notaHorario = fechaSalida ? " para tu horario programado" : "";
+            setRouteStatus(status, `${mensajeRutaOk(ruta, "Ruta al valle")}${notaHorario}`, "is-ok");
         } catch (error) {
             if (requestId !== routeRequestCounter) return;
             setRouteStatus(status, mensajeErrorRuta(error), "is-error");
@@ -1740,6 +1856,11 @@ function initAutoRuta() {
         campo?.addEventListener("change", () => {
             const tipo = getTipoServicio();
             if (tipo === "traslado" || tipo === "tour") programarCalculoRuta(tipo);
+
+            const resultado = document.getElementById("resultado");
+            if (resultado?.classList.contains("visible")) {
+                calcular();
+            }
         });
     });
 }
