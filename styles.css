@@ -658,6 +658,138 @@ h1, h2, h3 {
     border: 0;
 }
 
+/* ── Contact save banner ── */
+
+.contact-banner {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 1900;
+    display: flex;
+    justify-content: center;
+    padding: 16px;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(24px);
+    transition: opacity 0.35s ease, visibility 0.35s ease, transform 0.35s ease;
+}
+
+.contact-banner.is-open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.contact-banner[hidden] {
+    display: none !important;
+}
+
+.contact-banner-inner {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    padding: 22px 20px 18px;
+    background: linear-gradient(160deg, #141414 0%, #080808 100%);
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(212, 175, 55, 0.06);
+}
+
+.contact-banner-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-muted);
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition);
+}
+
+.contact-banner-close:hover {
+    background: var(--gold-dim);
+    color: var(--gold);
+}
+
+.contact-banner-tag {
+    margin: 0 0 6px;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--gold);
+}
+
+.contact-banner-title {
+    margin: 0 28px 8px 0;
+    font-family: 'Playfair Display', serif;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.25;
+}
+
+.contact-banner-text {
+    margin: 0 0 16px;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+
+.contact-banner-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.contact-banner-btn-save,
+.contact-banner-btn-wa {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 46px;
+    font-size: 0.82rem;
+}
+
+.contact-banner-btn-wa:hover {
+    color: var(--gold-light);
+}
+
+.contact-banner-dismiss {
+    display: block;
+    width: 100%;
+    margin-top: 12px;
+    padding: 6px;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: color var(--transition);
+}
+
+.contact-banner-dismiss:hover {
+    color: var(--text);
+}
+
+@media (min-width: 768px) {
+    .contact-banner {
+        justify-content: flex-end;
+        padding: 24px;
+    }
+}
+
 /* ── Gallery lightbox ── */
 
 .lightbox {
@@ -1297,21 +1429,15 @@ h1, h2, h3 {
     text-shadow: 0 0 40px var(--gold-glow);
 }
 
-.result-price-range {
-    font-size: 0.78rem;
-    color: var(--text-muted);
-    margin-top: 8px;
-}
-
-.result-price-confirm {
+.result-price-variation {
     font-size: 0.76rem;
-    color: var(--gold);
+    color: var(--text-muted);
     margin-top: 10px;
     line-height: 1.45;
 }
 
-.result-price-confirm strong {
-    color: var(--gold-light);
+.result-price-variation strong {
+    color: var(--gold);
 }
 
 .result-policy-note {
@@ -1418,12 +1544,17 @@ h1, h2, h3 {
     margin-top: 16px;
     background: var(--whatsapp);
     color: #fff;
+    border: none;
     border-radius: 8px;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.72rem;
     font-weight: 700;
     letter-spacing: 0.6px;
+    cursor: pointer;
     transition: var(--transition);
     box-shadow: 0 4px 16px rgba(37, 211, 102, 0.25);
+    text-decoration: none;
+    width: 100%;
 }
 
 .btn-whatsapp-result:hover {
@@ -1451,6 +1582,429 @@ h1, h2, h3 {
     left: 0;
     color: var(--gold);
     font-weight: 700;
+}
+
+/* ── Reservation modal ── */
+
+.reserva-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 2100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 16px;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--transition), visibility var(--transition);
+}
+
+.reserva-modal.is-open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.reserva-modal[hidden] {
+    display: none !important;
+}
+
+.reserva-modal-window {
+    position: relative;
+    width: 100%;
+    max-width: 520px;
+    max-height: 92vh;
+    overflow-y: auto;
+    background: linear-gradient(160deg, #121212 0%, #080808 100%);
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+    transform: scale(0.96) translateY(10px);
+    transition: transform 0.35s ease;
+}
+
+.reserva-modal.is-open .reserva-modal-window {
+    transform: scale(1) translateY(0);
+}
+
+.reserva-modal-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 2;
+}
+
+.reserva-modal-body {
+    padding: 24px 22px 22px;
+}
+
+.reserva-modal-tag {
+    display: block;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 6px;
+}
+
+.reserva-modal-body h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 28px 16px 0;
+    line-height: 1.25;
+}
+
+.reserva-resumen {
+    padding: 14px 16px;
+    margin-bottom: 14px;
+    background: rgba(212, 175, 55, 0.06);
+    border: 1px solid rgba(212, 175, 55, 0.15);
+    border-radius: var(--radius);
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: var(--text-muted);
+}
+
+.reserva-resumen strong {
+    color: var(--text);
+    font-weight: 600;
+}
+
+.reserva-resumen-price {
+    display: block;
+    margin-top: 8px;
+    font-size: 1rem;
+    color: var(--gold);
+    font-weight: 700;
+}
+
+.reserva-policy-note {
+    margin: 0 0 18px;
+    padding: 10px 12px;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.03);
+    border-left: 3px solid var(--gold);
+    border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.reserva-policy-note strong {
+    color: var(--text);
+}
+
+.reserva-form .form-group {
+    margin-bottom: 14px;
+}
+
+.reserva-fieldset {
+    margin: 0 0 16px;
+    padding: 14px 14px 4px;
+    border: 1px solid rgba(212, 175, 55, 0.12);
+    border-radius: var(--radius);
+}
+
+.reserva-fieldset legend {
+    padding: 0 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--gold);
+}
+
+.reserva-madrugada-block {
+    margin-bottom: 16px;
+    padding: 14px;
+    background: rgba(212, 175, 55, 0.05);
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    border-radius: var(--radius);
+}
+
+.reserva-diurno-block {
+    margin-bottom: 16px;
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(212, 175, 55, 0.15);
+    border-radius: var(--radius);
+}
+
+.reserva-diurno-info {
+    margin: 0 0 10px;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+
+.reserva-diurno-info.is-immediate {
+    color: #f0d78c;
+}
+
+.reserva-diurno-block .reserva-check-label {
+    margin-bottom: 0;
+}
+
+.reserva-politicas-block {
+    margin-bottom: 16px;
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(212, 175, 55, 0.18);
+    border-radius: var(--radius);
+}
+
+.reserva-accept-wrap {
+    margin-bottom: 16px;
+}
+
+.reserva-accept-label {
+    margin-bottom: 6px;
+}
+
+.reserva-ver-politicas {
+    display: inline-block;
+    margin-left: 28px;
+    padding: 0;
+    border: none;
+    background: none;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--gold);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+    transition: color var(--transition);
+}
+
+.reserva-ver-politicas:hover {
+    color: var(--gold-light);
+}
+
+/* ── Policies sub-modal ── */
+
+.politicas-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 2200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 16px;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--transition), visibility var(--transition);
+}
+
+.politicas-modal.is-open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.politicas-modal[hidden] {
+    display: none !important;
+}
+
+.politicas-modal-window {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    max-height: 85vh;
+    overflow-y: auto;
+    background: linear-gradient(160deg, #121212 0%, #080808 100%);
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+    transform: scale(0.96) translateY(10px);
+    transition: transform 0.35s ease;
+}
+
+.politicas-modal.is-open .politicas-modal-window {
+    transform: scale(1) translateY(0);
+}
+
+.politicas-modal-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 2;
+}
+
+.politicas-modal-body {
+    padding: 24px 22px 22px;
+}
+
+.politicas-modal-body h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 28px 16px 0;
+    line-height: 1.25;
+}
+
+.politicas-modal-body .reserva-politicas-list {
+    margin-bottom: 20px;
+}
+
+.reserva-politicas-title {
+    margin: 0 0 10px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--gold);
+}
+
+.reserva-politicas-list {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: var(--text-muted);
+}
+
+.reserva-politicas-list li {
+    margin-bottom: 6px;
+}
+
+.reserva-politicas-list li:last-child {
+    margin-bottom: 0;
+}
+
+.reserva-politicas-list strong {
+    color: var(--text);
+}
+
+.reserva-madrugada-title {
+    margin: 0 0 10px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--gold);
+}
+
+.reserva-madrugada-list {
+    margin: 0 0 14px;
+    padding-left: 18px;
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: var(--text-muted);
+}
+
+.reserva-madrugada-list li {
+    margin-bottom: 6px;
+}
+
+.reserva-madrugada-list strong {
+    color: var(--text);
+}
+
+.reserva-deposito-box {
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: var(--radius);
+    border: 1px solid rgba(212, 175, 55, 0.12);
+}
+
+.reserva-deposito-label {
+    margin: 0 0 4px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--gold);
+}
+
+.reserva-deposito-monto {
+    margin: 0 0 10px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.reserva-deposito-datos {
+    margin: 0;
+    display: grid;
+    gap: 6px;
+}
+
+.reserva-deposito-datos div {
+    display: flex;
+    gap: 8px;
+    font-size: 0.78rem;
+}
+
+.reserva-deposito-datos dt {
+    min-width: 52px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.reserva-deposito-datos dd {
+    margin: 0;
+    color: var(--text);
+    font-weight: 600;
+}
+
+.reserva-deposito-nota {
+    margin: 10px 0 0;
+    font-size: 0.72rem;
+    line-height: 1.45;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.reserva-check-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 14px;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.reserva-check-label input {
+    margin-top: 3px;
+    flex-shrink: 0;
+    accent-color: var(--gold);
+}
+
+.reserva-error {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: #ffb4b4;
+    background: rgba(220, 60, 60, 0.12);
+    border: 1px solid rgba(220, 60, 60, 0.25);
+    border-radius: var(--radius);
+}
+
+.reserva-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.reserva-actions .btn-whatsapp-result {
+    margin-top: 0;
+}
+
+.quote-result-wrap > .btn-whatsapp-result {
+    width: 100%;
 }
 
 /* ── Destinations ── */

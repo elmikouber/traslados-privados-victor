@@ -28,6 +28,18 @@ const KM_TRAMO_1_MAX = 20;
 const KM_TRAMO_2_MAX = 30;
 const KM_ESCALON_DESCUENTO = 3;
 
+const RESERVA_CORTE_HORA = 22;
+const RESERVA_MADRUGADA_HORAS_MIN = 10;
+const RESERVA_DIURNO_HORAS_PREFERIDAS = 2;
+const RESERVA_MAX_PASAJEROS = 4;
+const RESERVA_CUENTA_BBVA = {
+    banco: "BBVA",
+    cuenta: "012028011137631534",
+    titular: "Victor Palacios"
+};
+
+let ultimaCotizacion = null;
+
 const PATRONES_UBICACION_FORANEA = [
     /ensenada/i,
     /mexicali/i,
@@ -50,7 +62,10 @@ const PATRONES_UBICACION_LOCAL = [
 ];
 
 const NOTA_CIERRE_RESERVA =
-    "Cotización estimada. El monto final se confirma contigo al reservar.";
+    "El monto mostrado es el precio fijo del servicio. Solo puede incrementar por tráfico, desvíos, accidentes u imprevistos en ruta.";
+
+const NOTA_POLITICA_COTIZACION =
+    "El monto cotizado es el precio fijo del servicio, salvo incrementos por tráfico, desvíos, accidentes u imprevistos en ruta.";
 
 const tipoLabels = {
     traslado: "Traslado punto a punto",
@@ -92,6 +107,7 @@ function resetResultado() {
         </div>
     `;
     document.getElementById("whatsappBtn").style.display = "none";
+    ultimaCotizacion = null;
     limpiarMapaRuta();
 }
 
@@ -500,6 +516,398 @@ function lineasUbicacionWhatsApp(etiqueta, direccion, coords = null) {
     return lineas;
 }
 
+function parsearFechaHoraViaje(fecha, horario) {
+    const [anio, mes, dia] = fecha.split("-").map(Number);
+    const parsed = parsearHorario(horario);
+    if (!parsed) return null;
+    return new Date(anio, mes - 1, dia, parsed.horas, parsed.minutos, 0, 0);
+}
+
+function esHorarioMadrugada(horario) {
+    return resolverTarifaLocal(horario).franja === "madrugada";
+}
+
+function obtenerLimiteReservaDiaAnterior(fechaViaje) {
+    const limite = new Date(fechaViaje);
+    limite.setDate(limite.getDate() - 1);
+    limite.setHours(RESERVA_CORTE_HORA, 0, 0, 0);
+    return limite;
+}
+
+function esHorarioDiurno(horario) {
+    const parsed = parsearHorario(horario);
+    return parsed !== null && parsed.horas >= HORARIO_PICO_HASTA_HORA;
+}
+
+function horasHastaViaje(fecha, horario) {
+    const viaje = parsearFechaHoraViaje(fecha, horario);
+    if (!viaje) return 0;
+    return (viaje.getTime() - Date.now()) / (1000 * 60 * 60);
+}
+
+function esServicioInmediatoDiurno(fecha, horario) {
+    return esHorarioDiurno(horario) && horasHastaViaje(fecha, horario) < RESERVA_DIURNO_HORAS_PREFERIDAS;
+}
+
+function reservaRequierePlazoDiaAnterior(horario) {
+    return !esHorarioDiurno(horario);
+}
+
+function obtenerTextoPoliticaReserva(fecha, horario) {
+    if (esHorarioDiurno(horario)) {
+        return `Para recogidas a partir de las 8:00 a.m., preferimos recibir tu solicitud con al menos <strong>${RESERVA_DIURNO_HORAS_PREFERIDAS} horas de anticipación</strong>. Si necesitas servicio inmediato, Víctor confirmará disponibilidad contigo <strong>(posible cargo extra)</strong>.`;
+    }
+    return `Para recogidas antes de las 8:00 a.m., la reservación debe realizarse <strong>antes de las 10:00 p.m. del día anterior</strong> al viaje.`;
+}
+
+function obtenerPoliticasReserva(datos, promedio) {
+    const politicas = [
+        "Máximo 4 pasajeros por viaje.",
+        "Debes proporcionar un contacto de emergencia.",
+        "Liquidar el viaje al llegar: efectivo o transferencia.",
+        NOTA_POLITICA_COTIZACION,
+        "La reserva queda sujeta a confirmación por Víctor por WhatsApp."
+    ];
+
+    if (reservaRequierePlazoDiaAnterior(datos.horario)) {
+        politicas.push("Recogida antes de las 8:00 a.m.: reservar antes de las 10:00 p.m. del día anterior.");
+    }
+
+    if (esHorarioMadrugada(datos.horario)) {
+        politicas.push("Horario de madrugada: reservar con al menos 10 horas de anticipación (clientes nuevos o con menos de 5 viajes).");
+        politicas.push(`Anticipo del 50% para clientes nuevos o con menos de 5 viajes (referencia: $${Math.round(promedio * 0.5)} MXN). Víctor validará si aplica.`);
+    }
+
+    if (esHorarioDiurno(datos.horario)) {
+        politicas.push(`Recogida a partir de las 8:00 a.m.: preferimos ${RESERVA_DIURNO_HORAS_PREFERIDAS} horas de anticipación.`);
+        if (esServicioInmediatoDiurno(datos.fecha, datos.horario)) {
+            politicas.push("Servicio inmediato: sujeto a disponibilidad con Víctor, con posible cargo extra.");
+        }
+    }
+
+    return politicas;
+}
+
+function renderizarPoliticasReserva(datos, promedio) {
+    const lista = document.getElementById("reservaPoliticasList");
+    if (!lista) return;
+
+    lista.innerHTML = obtenerPoliticasReserva(datos, promedio)
+        .map(politica => `<li>${politica}</li>`)
+        .join("");
+}
+
+function obtenerBloqueoPlazoReserva(fecha, horario) {
+    if (horasHastaViaje(fecha, horario) <= 0) {
+        return "La fecha y hora de recogida ya pasaron. Elige un horario futuro.";
+    }
+
+    if (esHorarioDiurno(horario)) {
+        return null;
+    }
+
+    if (!reservaDentroDePlazoGeneral(fecha, horario)) {
+        return "El plazo para reservar este viaje ya venció. Las reservaciones deben hacerse antes de las 10:00 p.m. del día anterior.";
+    }
+
+    if (esHorarioMadrugada(horario) && !madrugadaConAnticipacionSuficiente(fecha, horario)) {
+        return `Para madrugada se requiere reservar con al menos ${RESERVA_MADRUGADA_HORAS_MIN} horas de anticipación.`;
+    }
+
+    return null;
+}
+
+function reservaDentroDePlazoGeneral(fecha, horario) {
+    const viaje = parsearFechaHoraViaje(fecha, horario);
+    if (!viaje) return false;
+    return new Date() <= obtenerLimiteReservaDiaAnterior(viaje);
+}
+
+function madrugadaConAnticipacionSuficiente(fecha, horario) {
+    const viaje = parsearFechaHoraViaje(fecha, horario);
+    if (!viaje) return false;
+    const horasRestantes = (viaje.getTime() - Date.now()) / (1000 * 60 * 60);
+    return horasRestantes >= RESERVA_MADRUGADA_HORAS_MIN;
+}
+
+function normalizarTelefono(valor) {
+    return String(valor || "").replace(/\D/g, "");
+}
+
+function validarNombreCompleto(nombre) {
+    const partes = nombre.trim().split(/\s+/).filter(Boolean);
+    return partes.length >= 2 && partes.every(parte => parte.length >= 2);
+}
+
+function construirResumenReserva(datos, promedio) {
+    const tipo = tipoLabels[datos.tipo] || datos.tipo;
+    let ruta = "";
+
+    if (datos.tipo === "traslado") {
+        ruta = `${datos.origen} → ${datos.destino}`;
+    } else if (datos.tipo === "tour") {
+        ruta = `${datos.origen} → Valle de Guadalupe`;
+    }
+
+    return `
+        <strong>${tipo}</strong><br>
+        ${ruta}<br>
+        ${formatearFecha(datos.fecha)} · ${formatearHorario12h(datos.horario)}
+        <span class="reserva-resumen-price">Estimado: $${promedio} MXN</span>
+    `.trim();
+}
+
+function construirMensajeReserva(datos, promedio, minimo, maximo, confirmado, reserva) {
+    const base = construirMensaje(datos, promedio, minimo, maximo, confirmado);
+    const esMadrugada = esHorarioMadrugada(datos.horario);
+    const anticipo = Math.round(promedio * 0.5);
+    const lineasReserva = [
+        "👤 DATOS DE RESERVA",
+        `• Nombre: ${reserva.nombre}`,
+        `• Teléfono: ${reserva.telefono}`,
+        `• Pasajeros: ${reserva.pasajeros}`,
+        `• Emergencia: ${reserva.emergenciaNombre} — ${reserva.emergenciaTel}`,
+        "",
+        "📋 POLÍTICAS ACEPTADAS"
+    ];
+
+    if (reservaRequierePlazoDiaAnterior(datos.horario)) {
+        lineasReserva.push("• Reservación antes de 10:00 p.m. del día anterior ✓");
+    }
+
+    if (esHorarioDiurno(datos.horario)) {
+        if (reserva.esInmediato) {
+            lineasReserva.push("• Servicio inmediato — sujeto a disponibilidad con Víctor, posible cargo extra ✓");
+        } else {
+            lineasReserva.push(`• Solicitud con al menos ${RESERVA_DIURNO_HORAS_PREFERIDAS} horas de anticipación ✓`);
+        }
+    }
+
+    if (esMadrugada) {
+        lineasReserva.push(
+            "• Horario de madrugada — requisitos informados ✓",
+            `• Anticipo referencia (50%): $${anticipo} MXN`,
+            `• Depósito BBVA: ${RESERVA_CUENTA_BBVA.cuenta} (${RESERVA_CUENTA_BBVA.titular})`,
+            "• Liquidación al llegar: efectivo o transferencia"
+        );
+    }
+
+    lineasReserva.push("", "━━━━━━━━━━━━━━━━━━", "");
+
+    return lineasReserva.join("\n") + base.replace("🚗 SOLICITUD DE TRASLADO", "🚗 DETALLE DEL SERVICIO");
+}
+
+function mostrarErrorReserva(mensaje) {
+    const errorEl = document.getElementById("reservaError");
+    if (!errorEl) return;
+    errorEl.textContent = mensaje;
+    errorEl.hidden = !mensaje;
+}
+
+function actualizarUiPoliticaReserva(datos, promedio) {
+    const policyNote = document.getElementById("reservaPolicyNote");
+    const diurnoBlock = document.getElementById("reservaDiurnoBlock");
+    const diurnoInfo = document.getElementById("reservaDiurnoInfo");
+    const esDiurno = esHorarioDiurno(datos.horario);
+    const esInmediato = esServicioInmediatoDiurno(datos.fecha, datos.horario);
+
+    if (policyNote) {
+        policyNote.innerHTML = obtenerTextoPoliticaReserva(datos.fecha, datos.horario);
+    }
+
+    renderizarPoliticasReserva(datos, promedio);
+
+    if (diurnoBlock) {
+        diurnoBlock.hidden = !esDiurno;
+    }
+
+    if (diurnoInfo && esDiurno) {
+        diurnoInfo.textContent = esInmediato
+            ? "Tu recogida es en menos de 2 horas. Víctor revisará disponibilidad contigo antes de confirmar. Puede aplicar cargo extra."
+            : `Tu solicitud cumple con la anticipación preferida de ${RESERVA_DIURNO_HORAS_PREFERIDAS} horas.`;
+        diurnoInfo.classList.toggle("is-immediate", esInmediato);
+    }
+}
+
+function abrirModalReserva() {
+    if (!ultimaCotizacion) return;
+
+    const { datos, promedio } = ultimaCotizacion;
+    const modal = document.getElementById("reservaModal");
+    const resumen = document.getElementById("reservaResumen");
+    const madrugadaBlock = document.getElementById("reservaMadrugadaBlock");
+    const anticipoMonto = document.getElementById("reservaAnticipoMonto");
+    const form = document.getElementById("reservaForm");
+
+    if (!modal || !resumen || !form) return;
+
+    resumen.innerHTML = construirResumenReserva(datos, promedio);
+    form.reset();
+    document.getElementById("reservaPasajeros").value = "1";
+    mostrarErrorReserva("");
+
+    const esMadrugada = esHorarioMadrugada(datos.horario);
+    if (madrugadaBlock) {
+        madrugadaBlock.hidden = !esMadrugada;
+    }
+
+    const aceptaAnticipo = document.getElementById("reservaAceptaAnticipo");
+    if (aceptaAnticipo) {
+        aceptaAnticipo.required = esMadrugada;
+        aceptaAnticipo.checked = false;
+    }
+
+    if (anticipoMonto && esMadrugada) {
+        anticipoMonto.textContent = `$${Math.round(promedio * 0.5)} MXN (50% del estimado)`;
+    }
+
+    actualizarUiPoliticaReserva(datos, promedio);
+
+    const bloqueoPlazo = obtenerBloqueoPlazoReserva(datos.fecha, datos.horario);
+    if (bloqueoPlazo) {
+        mostrarErrorReserva(bloqueoPlazo);
+    }
+
+    modal.removeAttribute("hidden");
+    requestAnimationFrame(() => {
+        modal.classList.add("is-open");
+        modal.setAttribute("aria-hidden", "false");
+        document.getElementById("reservaNombre")?.focus();
+    });
+}
+
+function cerrarModalReserva() {
+    cerrarPoliticasModal();
+    const modal = document.getElementById("reservaModal");
+    if (!modal) return;
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+    setTimeout(() => modal.setAttribute("hidden", ""), 350);
+}
+
+function validarFormularioReserva(datos) {
+    const nombre = document.getElementById("reservaNombre")?.value.trim() || "";
+    const telefono = document.getElementById("reservaTelefono")?.value.trim() || "";
+    const pasajeros = parseInt(document.getElementById("reservaPasajeros")?.value, 10);
+    const emergenciaNombre = document.getElementById("reservaEmergenciaNombre")?.value.trim() || "";
+    const emergenciaTel = document.getElementById("reservaEmergenciaTel")?.value.trim() || "";
+    const aceptaPoliticas = document.getElementById("reservaAceptaPoliticas")?.checked;
+    const aceptaAnticipo = document.getElementById("reservaAceptaAnticipo")?.checked;
+    const esMadrugada = esHorarioMadrugada(datos.horario);
+
+    const bloqueoPlazo = obtenerBloqueoPlazoReserva(datos.fecha, datos.horario);
+    if (bloqueoPlazo) {
+        return bloqueoPlazo;
+    }
+
+    if (!validarNombreCompleto(nombre)) {
+        return "Ingresa tu nombre completo (nombre y apellido).";
+    }
+
+    if (normalizarTelefono(telefono).length < 10) {
+        return "Ingresa un teléfono de contacto válido (10 dígitos).";
+    }
+
+    if (!pasajeros || pasajeros < 1 || pasajeros > RESERVA_MAX_PASAJEROS) {
+        return `Indica entre 1 y ${RESERVA_MAX_PASAJEROS} pasajeros.`;
+    }
+
+    if (!emergenciaNombre || emergenciaNombre.length < 3) {
+        return "Ingresa el nombre de tu contacto de emergencia.";
+    }
+
+    if (normalizarTelefono(emergenciaTel).length < 10) {
+        return "Ingresa un teléfono de emergencia válido (10 dígitos).";
+    }
+
+    if (!aceptaPoliticas) {
+        return "Debes aceptar las políticas de reserva para continuar.";
+    }
+
+    if (esMadrugada && !aceptaAnticipo) {
+        return "Debes confirmar que entiendes el requisito de anticipo para horario de madrugada.";
+    }
+
+    return null;
+}
+
+function enviarReservaWhatsApp(event) {
+    event.preventDefault();
+    if (!ultimaCotizacion) return;
+
+    const { datos, promedio, minimo, maximo, confirmado } = ultimaCotizacion;
+    const error = validarFormularioReserva(datos);
+
+    if (error) {
+        mostrarErrorReserva(error);
+        return;
+    }
+
+    const reserva = {
+        nombre: document.getElementById("reservaNombre").value.trim(),
+        telefono: document.getElementById("reservaTelefono").value.trim(),
+        pasajeros: parseInt(document.getElementById("reservaPasajeros").value, 10),
+        emergenciaNombre: document.getElementById("reservaEmergenciaNombre").value.trim(),
+        emergenciaTel: document.getElementById("reservaEmergenciaTel").value.trim(),
+        esInmediato: esServicioInmediatoDiurno(datos.fecha, datos.horario)
+    };
+
+    const mensaje = construirMensajeReserva(datos, promedio, minimo, maximo, confirmado, reserva);
+    window.open(`https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`, "_blank", "noopener");
+    cerrarModalReserva();
+}
+
+function abrirPoliticasModal() {
+    const modal = document.getElementById("politicasModal");
+    if (!modal) return;
+
+    modal.removeAttribute("hidden");
+    requestAnimationFrame(() => {
+        modal.classList.add("is-open");
+        modal.setAttribute("aria-hidden", "false");
+    });
+}
+
+function cerrarPoliticasModal() {
+    const modal = document.getElementById("politicasModal");
+    if (!modal) return;
+
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+    setTimeout(() => modal.setAttribute("hidden", ""), 350);
+}
+
+function initReservaModal() {
+    document.getElementById("whatsappBtn")?.addEventListener("click", abrirModalReserva);
+    document.getElementById("reservaModalClose")?.addEventListener("click", cerrarModalReserva);
+    document.getElementById("reservaCancelar")?.addEventListener("click", cerrarModalReserva);
+    document.getElementById("reservaForm")?.addEventListener("submit", enviarReservaWhatsApp);
+    document.getElementById("reservaVerPoliticas")?.addEventListener("click", abrirPoliticasModal);
+    document.getElementById("politicasModalClose")?.addEventListener("click", cerrarPoliticasModal);
+    document.getElementById("politicasModalCerrar")?.addEventListener("click", cerrarPoliticasModal);
+
+    document.getElementById("politicasModal")?.addEventListener("click", (evento) => {
+        if (evento.target.id === "politicasModal") cerrarPoliticasModal();
+    });
+
+    document.getElementById("reservaModal")?.addEventListener("click", (evento) => {
+        if (evento.target.id === "reservaModal") cerrarModalReserva();
+    });
+
+    document.addEventListener("keydown", (evento) => {
+        if (evento.key !== "Escape") return;
+
+        if (document.getElementById("politicasModal")?.classList.contains("is-open")) {
+            cerrarPoliticasModal();
+            return;
+        }
+
+        if (document.getElementById("reservaModal")?.classList.contains("is-open")) {
+            cerrarModalReserva();
+        }
+    });
+}
+
 function construirMensaje(datos, promedio, minimo, maximo, confirmado) {
     const nivel = TARIFAS[datos.nivelServicio || "ejecutivo"];
     const lineas = [
@@ -561,8 +969,7 @@ function construirMensaje(datos, promedio, minimo, maximo, confirmado) {
         "",
         "💰 COTIZACIÓN ESTIMADA",
         `• Referencia: $${promedio} MXN`,
-        `• Rango estimado: $${minimo} – $${maximo} MXN`,
-        `• Al reservar: hasta $${confirmado} MXN`,
+        `• Puede incrementar hasta $${confirmado} MXN por tráfico, desvíos o imprevistos en ruta`,
         "",
         "━━━━━━━━━━━━━━━━━━",
         "Hola Víctor, me interesa confirmar este traslado.",
@@ -655,7 +1062,8 @@ function calcular(event) {
             minutos,
             horasValle,
             vinedos,
-            nivelServicio
+            nivelServicio,
+            franjaHorario: resolverTarifaLocal(horario).franja
         };
         detalle = `${TARIFAS.ejecutivo.etiqueta}: tour con ${horasValle} h en el valle.`;
     }
@@ -668,9 +1076,8 @@ function calcular(event) {
     resultado.innerHTML = construirResultado(datos, promedio, minimo, maximo, confirmado, detalle, mostrarMapa);
     resultado.classList.add("visible");
 
-    const whatsappBtn = document.getElementById("whatsappBtn");
-    whatsappBtn.href = `https://wa.me/${telefono}?text=${encodeURIComponent(construirMensaje(datos, promedio, minimo, maximo, confirmado))}`;
-    whatsappBtn.style.display = "flex";
+    ultimaCotizacion = { datos, promedio, minimo, maximo, confirmado };
+    document.getElementById("whatsappBtn").style.display = "flex";
 
     if (mostrarMapa) {
         const origenMapa = datos.origen;
@@ -731,8 +1138,7 @@ function construirResultado(datos, promedio, minimo, maximo, confirmado, detalle
                 <div class="result-price-main">
                     <strong>$${promedio} MXN</strong>
                 </div>
-                <div class="result-price-range">Rango estimado: $${minimo} – $${maximo} MXN</div>
-                <div class="result-price-confirm">Al reservar: hasta <strong>$${confirmado} MXN</strong></div>
+                <div class="result-price-variation">Puede incrementar hasta <strong>$${confirmado} MXN</strong> por tráfico, desvíos o imprevistos en ruta.</div>
             </div>
             ${mapaHtml}
             <div class="result-detail-text">${detalle}</div>
@@ -1887,3 +2293,75 @@ function initDestCardTaglines() {
 initDestCardTaglines();
 initAutoRuta();
 initPlacesAutocomplete();
+initReservaModal();
+
+const CONTACT_BANNER_DELAY_MS = 4000;
+const CONTACT_BANNER_STORAGE_KEY = "tpv_contact_banner_dismissed";
+const CONTACT_BANNER_QR_STORAGE_KEY = "tpv_contact_banner_qr_dismissed";
+
+function initContactBanner() {
+    const banner = document.getElementById("contactBanner");
+    if (!banner) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const fromQr = params.has("qr");
+    const storageKey = fromQr ? CONTACT_BANNER_QR_STORAGE_KEY : CONTACT_BANNER_STORAGE_KEY;
+
+    if (localStorage.getItem(storageKey) === "1") return;
+
+    const tagEl = document.getElementById("contactBannerTag");
+    if (tagEl) {
+        tagEl.textContent = fromQr ? "¿Vienes del QR?" : "¿Primera vez aquí?";
+    }
+
+    const waLink = document.getElementById("contactBannerWa");
+    if (waLink) {
+        waLink.href = `https://wa.me/${telefono}?text=${encodeURIComponent("Hola Víctor, me interesa un traslado privado.")}`;
+    }
+
+    function dismissBanner() {
+        localStorage.setItem(storageKey, "1");
+        banner.classList.remove("is-open");
+        banner.setAttribute("aria-hidden", "true");
+        setTimeout(() => banner.setAttribute("hidden", ""), 350);
+    }
+
+    function showBanner() {
+        banner.removeAttribute("hidden");
+        requestAnimationFrame(() => {
+            banner.setAttribute("aria-hidden", "false");
+            banner.classList.add("is-open");
+        });
+    }
+
+    function downloadVCard() {
+        const vcard = [
+            "BEGIN:VCARD",
+            "VERSION:3.0",
+            "FN:Traslados Privados Víctor",
+            "N:Palacios;Víctor;;;",
+            "ORG:Traslados Privados Víctor",
+            `TEL;TYPE=CELL,VOICE:+${telefono}`,
+            "NOTE:Traslados privados en Baja California",
+            "END:VCARD"
+        ].join("\r\n");
+
+        const blob = new Blob([vcard], { type: "text/vcard;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "Traslados-Privados-Victor.vcf";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    }
+
+    document.getElementById("contactBannerClose")?.addEventListener("click", dismissBanner);
+    document.getElementById("contactBannerDismiss")?.addEventListener("click", dismissBanner);
+    document.getElementById("contactBannerSave")?.addEventListener("click", downloadVCard);
+
+    setTimeout(showBanner, CONTACT_BANNER_DELAY_MS);
+}
+
+initContactBanner();
