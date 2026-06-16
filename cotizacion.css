@@ -230,7 +230,7 @@
     color: var(--text-muted);
 }
 
-.cotizacion-form input,
+.cotizacion-form input:not([type="checkbox"]),
 .cotizacion-form select {
     width: 100%;
     padding: 12px 14px;
@@ -244,24 +244,39 @@
 
 .cotizacion-politicas {
     margin-top: 4px;
-    font-size: 0.72rem;
-    color: var(--text-muted);
-    line-height: 1.55;
 }
 
-.cotizacion-politicas label {
+.cotizacion-check {
     display: flex;
     align-items: flex-start;
-    gap: 10px;
+    gap: 12px;
     cursor: pointer;
-    width: 100%;
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: var(--text-muted);
+    text-transform: none;
+    letter-spacing: normal;
+    font-weight: 400;
+    margin: 0;
 }
 
-.cotizacion-politicas input[type="checkbox"] {
-    width: auto;
-    margin-top: 3px;
-    flex-shrink: 0;
+.cotizacion-check input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    margin: 2px 0 0;
+    padding: 0;
+    border: 1px solid rgba(212, 175, 55, 0.45);
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.5);
     accent-color: var(--gold);
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.cotizacion-check-text {
+    flex: 1;
+    min-width: 0;
 }
 
 .cotizacion-actions {
