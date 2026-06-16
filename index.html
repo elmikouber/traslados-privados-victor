@@ -364,16 +364,8 @@
                                     <label for="horasExtra">Horas extra <span class="label-optional">(opcional)</span></label>
                                     <input type="number" id="horasExtra" value="0" min="0" step="1" placeholder="Ej. 1 h para parada adicional">
                                 </div>
-                                <div class="form-row route-calc-fields" id="routeCalcTraslado" hidden>
-                                    <div class="form-group">
-                                        <label for="km">Distancia (km)</label>
-                                        <input type="number" id="km" placeholder="0" min="0" step="0.1">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="minutos">Tiempo (min)</label>
-                                        <input type="number" id="minutos" placeholder="0" min="0">
-                                    </div>
-                                </div>
+                                <input type="hidden" id="km">
+                                <input type="hidden" id="minutos">
                                 <p class="route-status" id="routeStatus" aria-live="polite"></p>
                             </div>
 
@@ -382,16 +374,8 @@
                                     <label for="origenTour">Dirección de recogida</label>
                                     <input type="text" id="origenTour" placeholder="Ej. Hotel en Tijuana" autocomplete="off">
                                 </div>
-                                <div class="form-row route-calc-fields" id="routeCalcTour" hidden>
-                                    <div class="form-group">
-                                        <label for="kmTour">Km ida al valle</label>
-                                        <input type="number" id="kmTour" placeholder="90" min="0" step="0.1">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="minutosTour">Minutos (ida)</label>
-                                        <input type="number" id="minutosTour" placeholder="75" min="0">
-                                    </div>
-                                </div>
+                                <input type="hidden" id="kmTour">
+                                <input type="hidden" id="minutosTour">
                                 <p class="route-status" id="routeStatusTour" aria-live="polite"></p>
                                 <div class="form-group">
                                     <label for="horasTour">Horas en el valle</label>
@@ -752,6 +736,6 @@
 <script src="config.js"></script>
 <script type="module" src="firebase-solicitudes.js?v=19"></script>
 <script type="module" src="firebase-resenas.js?v=7"></script>
-<script src="script.js?v=19"></script>
+<script src="script.js?v=20"></script>
 </body>
 </html>

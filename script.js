@@ -1018,7 +1018,10 @@ function construirMensaje(datos, promedio, minimo, maximo, confirmado) {
 
 function calcular(event) {
     if (event) event.preventDefault();
+    void calcularAsync();
+}
 
+async function calcularAsync() {
     const tipo = getTipoServicio();
     const fecha = document.getElementById("fecha").value;
     const horario = document.getElementById("horario").value;
@@ -1033,12 +1036,24 @@ function calcular(event) {
     if (tipo === "traslado") {
         const origen = document.getElementById("origen").value.trim();
         const destino = document.getElementById("destino").value.trim();
-        const km = parseFloat(document.getElementById("km").value);
-        const minutos = parseFloat(document.getElementById("minutos").value);
+        const kmInput = document.getElementById("km");
+        const minInput = document.getElementById("minutos");
+        const status = document.getElementById("routeStatus");
+        let km = parseFloat(kmInput.value);
+        let minutos = parseFloat(minInput.value);
         const idaVuelta = document.getElementById("idaVuelta").checked;
         const horasExtra = parseFloat(document.getElementById("horasExtra")?.value) || 0;
 
-        if (!origen || !destino || isNaN(km) || isNaN(minutos)) return;
+        if (!origen || !destino) return;
+
+        if (isNaN(km) || isNaN(minutos)) {
+            const ruta = await obtenerRutaParaCotizacion(origen, destino, status);
+            if (!ruta) return;
+            llenarCamposRuta(kmInput, minInput, ruta);
+            km = ruta.km;
+            minutos = ruta.minutos;
+        }
+
         if (horasExtra < 0) return;
         if (horasExtra > 0 && horasExtra < 1) return;
 
@@ -1078,12 +1093,23 @@ function calcular(event) {
 
     if (tipo === "tour") {
         const origen = document.getElementById("origenTour").value.trim();
-        const km = parseFloat(document.getElementById("kmTour").value);
-        const minutos = parseFloat(document.getElementById("minutosTour").value);
+        const kmInput = document.getElementById("kmTour");
+        const minInput = document.getElementById("minutosTour");
+        const status = document.getElementById("routeStatusTour");
+        let km = parseFloat(kmInput.value);
+        let minutos = parseFloat(minInput.value);
         const horasValle = parseFloat(document.getElementById("horasTour").value);
         const vinedos = document.getElementById("vinedos").value.trim();
 
-        if (!origen || isNaN(km) || isNaN(minutos) || isNaN(horasValle)) return;
+        if (!origen || isNaN(horasValle)) return;
+
+        if (isNaN(km) || isNaN(minutos)) {
+            const ruta = await obtenerRutaParaCotizacion(origen, VALLE_DESTINO, status, "Ruta al valle");
+            if (!ruta) return;
+            llenarCamposRuta(kmInput, minInput, ruta);
+            km = ruta.km;
+            minutos = ruta.minutos;
+        }
 
         nivelServicio = "ejecutivo";
         const calculoTour = calcularPrecioTour(km, minutos, horasValle);
@@ -1637,21 +1663,11 @@ function setRouteStatus(elemento, mensaje, estado) {
     elemento.textContent = mensaje;
     elemento.classList.remove("is-loading", "is-ok", "is-error");
     if (estado) elemento.classList.add(estado);
-
-    const panel = elemento.id === "routeStatus"
-        ? document.getElementById("routeCalcTraslado")
-        : elemento.id === "routeStatusTour"
-            ? document.getElementById("routeCalcTour")
-            : null;
-
-    if (panel) {
-        panel.hidden = estado !== "is-error";
-    }
 }
 
 const DIRECTIONS_ERROR_MSG = {
     REQUEST_DENIED: "Google rechazó la solicitud. En tu Browser key agrega Maps JavaScript API, Distance Matrix API, Directions API y Places API.",
-    OVER_QUERY_LIMIT: "Límite de consultas alcanzado. Intenta más tarde o ingresa km y minutos manualmente.",
+    OVER_QUERY_LIMIT: "Límite de consultas alcanzado. Intenta más tarde.",
     ZERO_RESULTS: "Google Maps no encontró ruta entre esos puntos.",
     NOT_FOUND: "No se reconoció el origen o el destino. Sé más específico (colonia, hotel, lugar).",
     INVALID_REQUEST: "Datos de ruta inválidos. Revisa origen y destino.",
@@ -1669,16 +1685,16 @@ function mensajeErrorRuta(error) {
         return "No se pudo cargar Google Maps. Abre la web con Live Server (http://localhost), no como archivo.";
     }
     if (error.message === "ROUTE_TIMEOUT") {
-        return "Google Maps no respondió. Se usará estimado alternativo o ingresa km y minutos manualmente.";
+        return "Google Maps no respondió. Intenta de nuevo en unos segundos.";
     }
     if (error.message === "ROUTE_BOTH_FAILED") {
-        return "No se pudo calcular la ruta. Ingresa km y minutos manualmente.";
+        return "No se pudo calcular la ruta. Verifica origen y destino.";
     }
     if (error.message?.startsWith("ROUTE_")) {
         const codigo = error.message.replace("ROUTE_", "");
-        return DIRECTIONS_ERROR_MSG[codigo] || `Error de ruta (${codigo}). Ingresa km y minutos manualmente.`;
+        return DIRECTIONS_ERROR_MSG[codigo] || `Error de ruta (${codigo}). Verifica origen y destino.`;
     }
-    return "No se pudo conectar con Google Maps. Ingresa km y minutos manualmente.";
+    return "No se pudo conectar con Google Maps. Intenta de nuevo.";
 }
 
 const GOOGLE_ROUTE_TIMEOUT_MS = 5000;
@@ -2192,6 +2208,30 @@ function llenarCamposRuta(kmInput, minInput, ruta) {
     minInput.value = ruta.minutos;
 }
 
+async function obtenerRutaParaCotizacion(origen, destino, statusEl, prefijo = "Ruta") {
+    if (!origen || origen.length < 3 || !destino || destino.length < 3) {
+        return null;
+    }
+
+    setRouteStatus(statusEl, "Calculando ruta...", "is-loading");
+
+    try {
+        const fechaSalida = obtenerFechaSalidaProgramada();
+        const ruta = await obtenerRuta(origen, destino, fechaSalida);
+        if (!ruta) {
+            setRouteStatus(statusEl, "No se pudo calcular la ruta. Verifica origen y destino.", "is-error");
+            return null;
+        }
+
+        const notaHorario = fechaSalida ? " para tu horario programado" : "";
+        setRouteStatus(statusEl, `${mensajeRutaOk(ruta, prefijo)}${notaHorario}`, "is-ok");
+        return ruta;
+    } catch (error) {
+        setRouteStatus(statusEl, mensajeErrorRuta(error), "is-error");
+        return null;
+    }
+}
+
 function mensajeRutaOk(ruta, prefijo = "Ruta") {
     if (ruta.fuente === "osrm") {
         return `${prefijo} calculada (referencia aproximada).`;
@@ -2224,7 +2264,7 @@ async function calcularRutaAutomatica(tipo) {
             if (requestId !== routeRequestCounter) return;
 
             if (!ruta) {
-                setRouteStatus(status, "Google Maps no encontró la ruta. Ingresa km y minutos manualmente.", "is-error");
+                setRouteStatus(status, "No se pudo calcular la ruta. Verifica origen y destino.", "is-error");
                 return;
             }
 
@@ -2257,7 +2297,7 @@ async function calcularRutaAutomatica(tipo) {
             if (requestId !== routeRequestCounter) return;
 
             if (!ruta) {
-                setRouteStatus(status, "Google Maps no encontró la ruta. Ingresa km y minutos manualmente.", "is-error");
+                setRouteStatus(status, "No se pudo calcular la ruta. Verifica origen y destino.", "is-error");
                 return;
             }
 
@@ -2302,7 +2342,7 @@ function initAutoRuta() {
 
             const resultado = document.getElementById("resultado");
             if (resultado?.classList.contains("visible")) {
-                calcular();
+                void calcularAsync();
             }
         });
     });
