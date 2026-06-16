@@ -11,8 +11,10 @@ import { firebaseConfig } from "./firebase-config.js";
 import {
     tipoLabels,
     formatearFecha,
-    formatearHorario12h
+    formatearHorario12h,
+    crearFechaSalidaProgramada
 } from "./cotizador-core.js";
+import { renderizarMapaRuta } from "./cotizador-rutas.js";
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -320,6 +322,24 @@ async function cargarCotizacion() {
         }
         if (resumenEl) resumenEl.innerHTML = renderResumen(conf);
         if (contenidoEl) contenidoEl.hidden = false;
+
+        const r = conf.resumen || {};
+        let notaMapa = "";
+        if (r.tipo === "traslado" && r.idaVuelta) {
+            notaMapa = "Ruta de referencia (solo ida). El precio incluye ida y vuelta.";
+        } else if (r.tipo === "tour") {
+            notaMapa = "Ruta de ida al Valle de Guadalupe.";
+        }
+
+        const fechaSalida = crearFechaSalidaProgramada(r.fecha, r.horario);
+        void renderizarMapaRuta(
+            document.getElementById("cotRouteMap"),
+            document.getElementById("cotRouteMapCaption"),
+            r.origen,
+            r.destino,
+            notaMapa,
+            fechaSalida
+        );
 
         const nombreInput = document.getElementById("cotNombre");
         if (nombreInput && conf.nombreCliente && conf.nombreCliente !== "Cliente") {
