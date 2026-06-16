@@ -17,7 +17,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css?v=18">
-    <link rel="stylesheet" href="admin.css?v=5">
+    <link rel="stylesheet" href="admin.css?v=9">
 </head>
 <body class="admin-body">
 
@@ -58,6 +58,7 @@
                 </div>
             </div>
             <div class="admin-header-actions">
+                <button type="button" class="btn btn-outline admin-header-btn" id="adminCotizadorBtn" title="Cotizar para cliente por WhatsApp">💬 Cotizador</button>
                 <button type="button" class="btn btn-outline admin-header-btn" id="adminCalendarBtn" title="Ver calendario de reservas">📅 Calendario</button>
                 <button type="button" class="btn btn-outline admin-header-btn admin-notify-btn" id="notifyBtn" title="Avisos de nuevas solicitudes">🔔 Avisos</button>
                 <a href="index.html" class="btn btn-outline admin-header-btn">Sitio web</a>
@@ -97,6 +98,121 @@
         </div>
     </div>
 
+    <div class="admin-cotizador-overlay" id="adminCotizadorPanel" hidden aria-hidden="true">
+        <div class="admin-cotizador-panel" role="dialog" aria-modal="true" aria-labelledby="adminCotizadorTitle">
+            <div class="admin-cotizador-panel-head">
+                <div>
+                    <h2 id="adminCotizadorTitle">Cotizador WhatsApp</h2>
+                    <p class="admin-calendar-sub">Cotiza para clientes que te escribieron por WhatsApp y envía el mensaje listo.</p>
+                </div>
+                <button type="button" class="admin-calendar-close" id="adminCotizadorClose" aria-label="Cerrar cotizador">×</button>
+            </div>
+            <div class="admin-cotizador-layout">
+                <form class="admin-cotizador-form" id="adminCotizadorForm" novalidate>
+                    <input type="hidden" id="adminCotTipo" value="traslado">
+
+                    <div class="admin-cot-tabs" role="tablist">
+                        <button type="button" class="admin-cot-tab active" data-tipo="traslado">Punto a punto</button>
+                        <button type="button" class="admin-cot-tab" data-tipo="tour">Tour valle</button>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="adminCotTelefono">WhatsApp del cliente</label>
+                            <input type="tel" id="adminCotTelefono" required placeholder="664 123 4567" inputmode="tel">
+                        </div>
+                        <div class="form-group">
+                            <label for="adminCotNombre">Nombre <span class="label-optional">(opcional)</span></label>
+                            <input type="text" id="adminCotNombre" placeholder="Para el saludo">
+                        </div>
+                    </div>
+
+                    <div id="adminCotOrigenDestino">
+                        <div class="form-group address-autocomplete-wrap">
+                            <label for="adminCotOrigen">Origen</label>
+                            <input type="text" id="adminCotOrigen" placeholder="Ej. Aeropuerto de Tijuana" autocomplete="off">
+                        </div>
+                        <div class="form-group address-autocomplete-wrap">
+                            <label for="adminCotDestino">Destino</label>
+                            <input type="text" id="adminCotDestino" placeholder="Ej. Rosarito, Ensenada" autocomplete="off">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="adminCotFecha">Fecha</label>
+                            <input type="date" id="adminCotFecha" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="adminCotHorario">Horario</label>
+                            <input type="time" id="adminCotHorario" required>
+                        </div>
+                    </div>
+
+                    <div id="adminCotCamposTraslado">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="adminCotIdaVuelta">
+                            <span class="toggle-switch"></span>
+                            Ida y vuelta
+                        </label>
+                        <div class="form-group">
+                            <label for="adminCotHorasExtra">Horas extra <span class="label-optional">(opcional)</span></label>
+                            <input type="number" id="adminCotHorasExtra" value="0" min="0" step="1">
+                        </div>
+                    </div>
+
+                    <div id="adminCotCamposTour" class="admin-cot-hidden">
+                        <div class="form-group address-autocomplete-wrap">
+                            <label for="adminCotOrigenTour">Dirección de recogida</label>
+                            <input type="text" id="adminCotOrigenTour" placeholder="Ej. Hotel en Tijuana" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="adminCotHorasTour">Horas en el valle</label>
+                            <select id="adminCotHorasTour">
+                                <option value="3">3 horas</option>
+                                <option value="4" selected>4 horas</option>
+                                <option value="5">5 horas</option>
+                                <option value="6">6 horas</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="adminCotVinedos">Viñedos <span class="label-optional">(opcional)</span></label>
+                            <textarea id="adminCotVinedos" rows="2" placeholder="Lugares a visitar"></textarea>
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="adminCotKm">
+                    <input type="hidden" id="adminCotMinutos">
+                    <p class="admin-cot-route-status" id="adminCotRouteStatus" aria-live="polite"></p>
+
+                    <button type="submit" class="btn btn-gold btn-full">Calcular cotización</button>
+                </form>
+
+                <aside class="admin-cotizador-side">
+                    <div class="admin-cot-requisitos-card">
+                        <h3>Requisitos para este viaje</h3>
+                        <p class="admin-cot-aviso" id="adminCotAviso" aria-live="polite"></p>
+                        <ul class="admin-cot-requisitos" id="adminCotRequisitos">
+                            <li>Completa fecha y horario para ver los requisitos.</li>
+                        </ul>
+                    </div>
+
+                    <div class="admin-cot-resultado" id="adminCotResultado" hidden>
+                        <h3>Resultado</h3>
+                    </div>
+
+                    <button type="button" class="btn btn-whatsapp-result btn-full" id="adminCotEnviar" disabled>
+                        Enviar cotización por WhatsApp
+                    </button>
+                    <button type="button" class="btn btn-outline btn-full admin-cot-agendar-btn" id="adminCotAgendar" disabled>
+                        Enviar y agendar pendiente
+                    </button>
+                    <p class="admin-cot-agendar-hint">Agenda provisional con enlace para que el cliente acepte o rechace. Expira en 24 h o 2 h antes del viaje.</p>
+                </aside>
+            </div>
+        </div>
+    </div>
+
     <main class="admin-main container">
         <div class="admin-stats" id="adminStats" aria-live="polite"></div>
 
@@ -121,7 +237,8 @@
     </main>
 </div>
 
-<script type="module" src="admin.js?v=12"></script>
+<script src="config.js"></script>
+<script type="module" src="admin.js?v=15"></script>
 <script>
     document.querySelector('script[type="module"]')?.addEventListener("error", function () {
         var el = document.getElementById("loginError");

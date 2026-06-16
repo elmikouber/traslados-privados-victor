@@ -1,6 +1,6 @@
 import { doc, setDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 
-export const ESTADOS_OCUPAN = ["pendiente", "confirmado", "lista_espera"];
+export const ESTADOS_OCUPAN = ["cotizacion_pendiente", "pendiente", "confirmado", "lista_espera"];
 
 const MESES = [
     "enero", "febrero", "marzo", "abril", "mayo", "junio",

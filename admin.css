@@ -324,6 +324,7 @@
     text-transform: uppercase;
 }
 
+.admin-estado--cotizacion_pendiente { background: rgba(255, 193, 7, 0.15); color: #ffd966; }
 .admin-estado--pendiente { background: rgba(212, 175, 55, 0.2); color: var(--gold-light); }
 .admin-estado--confirmado { background: rgba(37, 211, 102, 0.15); color: #5ee89a; }
 .admin-estado--lista_espera { background: rgba(100, 149, 237, 0.15); color: #8ab4f8; }
@@ -818,6 +819,264 @@ body.admin-calendar-open {
 .admin-calendar-event-route,
 .admin-calendar-event-ref {
     font-size: 0.72rem !important;
+}
+
+.admin-cotizador-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 210;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 56px 12px 24px;
+    background: rgba(0, 0, 0, 0.75);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.28s ease, visibility 0.28s ease;
+    overflow-y: auto;
+}
+
+.admin-cotizador-overlay.is-open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.admin-cotizador-panel {
+    width: min(960px, 100%);
+    max-height: none;
+    overflow: visible;
+    padding: 20px;
+    background: #101010;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    transform: translateY(12px);
+    transition: transform 0.28s ease;
+}
+
+.admin-cotizador-overlay.is-open .admin-cotizador-panel {
+    transform: translateY(0);
+}
+
+.admin-cotizador-panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.admin-cotizador-panel-head h2 {
+    margin: 0 0 4px;
+    font-size: 1.1rem;
+}
+
+.admin-cotizador-layout {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 20px;
+    align-items: start;
+}
+
+.admin-cotizador-form .form-group {
+    margin-bottom: 12px;
+}
+
+.admin-cotizador-form .address-autocomplete-wrap {
+    position: relative;
+}
+
+.admin-cot-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.admin-cot-tab {
+    flex: 1;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.admin-cot-tab.active {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: rgba(212, 175, 55, 0.08);
+}
+
+.admin-cot-hidden {
+    display: none !important;
+}
+
+.admin-cot-route-status {
+    min-height: 1.2em;
+    margin: 4px 0 12px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.admin-cot-route-status.is-loading { color: var(--gold); }
+.admin-cot-route-status.is-ok { color: #8fbf8f; }
+.admin-cot-route-status.is-error { color: #e57373; }
+
+.admin-cotizador-side {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    position: sticky;
+    top: 0;
+}
+
+.admin-cot-requisitos-card {
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.admin-cot-requisitos-card h3,
+.admin-cot-resultado h3 {
+    margin: 0 0 10px;
+    font-size: 0.85rem;
+    color: var(--gold);
+}
+
+.admin-cot-requisitos {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.admin-cot-requisitos li + li {
+    margin-top: 6px;
+}
+
+.admin-cot-aviso {
+    margin: 0 0 8px;
+    font-size: 0.72rem;
+    color: #e57373;
+}
+
+.admin-cot-resultado {
+    padding: 16px;
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    border-radius: var(--radius);
+    background: rgba(212, 175, 55, 0.06);
+}
+
+.admin-cot-result-price {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--gold);
+    line-height: 1.1;
+}
+
+.admin-cot-result-price span {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.admin-cot-map-block {
+    margin: 12px 0 4px;
+}
+
+.admin-cot-map-block .result-map-label {
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.admin-cot-map-block .result-route-map {
+    width: 100%;
+    height: 200px;
+    border-radius: 10px;
+    border: 1px solid rgba(212, 175, 55, 0.22);
+    overflow: hidden;
+    background: #111;
+}
+
+.admin-cot-map-block .result-map-caption {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    text-align: center;
+    line-height: 1.45;
+    margin: 8px 0 0;
+    min-height: 1em;
+}
+
+.admin-cot-map-block .route-map-loading,
+.admin-cot-map-block .route-map-error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 200px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 16px;
+}
+
+.admin-cot-map-block .route-map-loading {
+    color: var(--gold);
+}
+
+.admin-cot-result-range,
+.admin-cot-result-meta,
+.admin-cot-result-detail {
+    margin: 6px 0 0;
+    font-size: 0.74rem;
+    color: var(--text-muted);
+}
+
+body.admin-cotizador-open {
+    overflow: hidden;
+}
+
+.admin-cot-agendar-btn {
+    margin-top: 8px;
+}
+
+.admin-cot-agendar-hint {
+    margin: 8px 0 0;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+    text-align: center;
+}
+
+.admin-card-cot-expira {
+    font-size: 0.72rem;
+    color: #ffd966;
+    margin-top: 6px;
+}
+
+.admin-card-cot-link {
+    font-size: 0.72rem;
+    color: var(--gold);
+}
+
+@media (max-width: 800px) {
+    .admin-cotizador-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-cotizador-side {
+        position: static;
+    }
 }
 
 @media (max-width: 600px) {

@@ -1,0 +1,222 @@
+.cotizacion-body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+}
+
+.cotizacion-header {
+    border-bottom: 1px solid rgba(212, 175, 55, 0.15);
+    padding: 16px 0;
+    background: rgba(0, 0, 0, 0.92);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.cotizacion-header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.cotizacion-back {
+    padding: 8px 14px;
+    font-size: 0.72rem;
+    white-space: nowrap;
+}
+
+.cotizacion-main {
+    padding: 40px 0 56px;
+}
+
+.cotizacion-container {
+    max-width: 560px;
+}
+
+.cotizacion-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1.5rem, 4vw, 1.9rem);
+    color: var(--gold);
+    margin: 8px 0 10px;
+}
+
+.cotizacion-sub {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+}
+
+.cotizacion-ref {
+    display: inline-block;
+    margin-top: 12px;
+    font-size: 0.72rem;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+}
+
+.cotizacion-alert {
+    margin-top: 20px;
+    padding: 14px 16px;
+    border-radius: var(--radius);
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    background: rgba(212, 175, 55, 0.08);
+    color: var(--gold);
+    font-size: 0.86rem;
+    line-height: 1.55;
+}
+
+.cotizacion-alert.is-error {
+    border-color: rgba(229, 115, 115, 0.35);
+    background: rgba(229, 115, 115, 0.1);
+    color: #e57373;
+}
+
+.cotizacion-alert.is-success {
+    border-color: rgba(143, 191, 143, 0.35);
+    background: rgba(143, 191, 143, 0.1);
+    color: #8fbf8f;
+}
+
+.cotizacion-card {
+    margin-top: 24px;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+}
+
+.cotizacion-price {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--gold);
+    line-height: 1.1;
+    margin-bottom: 6px;
+}
+
+.cotizacion-price span {
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.cotizacion-price-note {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-bottom: 16px;
+}
+
+.cotizacion-detail {
+    font-size: 0.84rem;
+    line-height: 1.65;
+    color: var(--text-muted);
+}
+
+.cotizacion-detail strong {
+    color: var(--text);
+}
+
+.cotizacion-detail p + p {
+    margin-top: 8px;
+}
+
+.cotizacion-expira {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(212, 175, 55, 0.12);
+    font-size: 0.75rem;
+    color: var(--gold);
+}
+
+.cotizacion-form {
+    margin-top: 20px;
+    display: grid;
+    gap: 14px;
+}
+
+.cotizacion-form .form-group label {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    margin-bottom: 6px;
+    color: var(--text-muted);
+}
+
+.cotizacion-form input,
+.cotizacion-form select {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(212, 175, 55, 0.22);
+    background: rgba(0, 0, 0, 0.35);
+    color: var(--text);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.86rem;
+}
+
+.cotizacion-politicas {
+    margin-top: 16px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.55;
+}
+
+.cotizacion-politicas label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+}
+
+.cotizacion-politicas input {
+    margin-top: 3px;
+    flex-shrink: 0;
+}
+
+.cotizacion-actions {
+    display: grid;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.cotizacion-actions .btn {
+    width: 100%;
+    justify-content: center;
+}
+
+.btn-cot-rechazar {
+    background: transparent;
+    border: 1px solid rgba(229, 115, 115, 0.45);
+    color: #e57373;
+}
+
+.btn-cot-rechazar:hover {
+    background: rgba(229, 115, 115, 0.1);
+}
+
+.cotizacion-footer {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(212, 175, 55, 0.1);
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.cotizacion-footer a {
+    color: var(--gold);
+}
+
+.cotizacion-loading {
+    text-align: center;
+    padding: 48px 0;
+    color: var(--gold);
+    font-size: 0.88rem;
+}
+
+@media (min-width: 520px) {
+    .cotizacion-actions--dual {
+        grid-template-columns: 1fr 1fr;
+    }
+}

@@ -62,10 +62,10 @@ const PATRONES_UBICACION_LOCAL = [
 ];
 
 const NOTA_CIERRE_RESERVA =
-    "El monto mostrado es el precio fijo del servicio. Solo puede incrementar por tráfico, desvíos, accidentes u imprevistos en ruta.";
+    "El monto mostrado es el precio fijo del servicio. Solo puede incrementar por tráfico, desvíos, accidentes o imprevistos en ruta.";
 
 const NOTA_POLITICA_COTIZACION =
-    "El monto cotizado es el precio fijo del servicio, salvo incrementos por tráfico, desvíos, accidentes u imprevistos en ruta.";
+    "El monto cotizado es el precio fijo del servicio, salvo incrementos por tráfico, desvíos, accidentes o imprevistos en ruta.";
 
 const tipoLabels = {
     traslado: "Traslado punto a punto",

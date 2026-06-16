@@ -16,6 +16,7 @@ import {
     serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 import { firebaseConfig, SITE_BASE_URL } from "./firebase-config.js";
+import { construirUrlConfirmacionCotizacion } from "./firebase-cotizacion-pendiente.js";
 import {
     agruparSolicitudesPorFecha,
     evaluarDisponibilidadDia,
@@ -27,9 +28,11 @@ import {
     sincronizarSlotSolicitud,
     sincronizarSlotsDesdeSolicitudes
 } from "./firebase-disponibilidad.js";
+import { initAdminCotizador } from "./admin-cotizador.js";
 
 const ESTADOS = [
     { id: "todas", label: "Todas", filtro: null },
+    { id: "cotizacion_pendiente", label: "Cotiz. pendiente", filtro: "cotizacion_pendiente" },
     { id: "pendiente", label: "Pendientes", filtro: "pendiente" },
     { id: "confirmado", label: "Confirmadas", filtro: "confirmado" },
     { id: "lista_espera", label: "Lista de espera", filtro: "lista_espera" },
@@ -48,6 +51,7 @@ const ACCIONES_ESTADO = [
 ];
 
 const ETIQUETAS_ESTADO = {
+    cotizacion_pendiente: "Cotización pendiente",
     pendiente: "Pendiente",
     confirmado: "Confirmado",
     lista_espera: "Lista de espera",
@@ -463,6 +467,7 @@ function renderStats() {
     if (!adminStats) return;
 
     const conteos = {
+        cotizacion_pendiente: 0,
         pendiente: 0,
         confirmado: 0,
         lista_espera: 0,
@@ -477,6 +482,10 @@ function renderStats() {
         <div class="admin-stat">
             <span class="admin-stat-value">${solicitudes.length}</span>
             <span class="admin-stat-label">Total</span>
+        </div>
+        <div class="admin-stat">
+            <span class="admin-stat-value">${conteos.cotizacion_pendiente}</span>
+            <span class="admin-stat-label">Cotiz. pendiente</span>
         </div>
         <div class="admin-stat">
             <span class="admin-stat-value">${conteos.pendiente}</span>
@@ -544,6 +553,13 @@ function renderTarjetaSolicitud(item) {
         >${accion.label}</button>`;
     }).join("");
 
+    const cotizacionPendienteInfo = estado === "cotizacion_pendiente"
+        ? `
+            <p class="admin-card-cot-expira">${item.expiraAt ? `Expira: ${formatearTimestamp(item.expiraAt)}` : ""}</p>
+            ${item.tokenConfirmacion ? `<p><a class="admin-card-cot-link" href="${escaparHtml(construirUrlConfirmacionCotizacion(item.tokenConfirmacion))}" target="_blank" rel="noopener">Enlace para el cliente</a></p>` : ""}
+        `
+        : "";
+
     return `
         <article class="admin-card" data-id="${item.id}">
             <div class="admin-card-header">
@@ -559,8 +575,8 @@ function renderTarjetaSolicitud(item) {
                     <ul>
                         <li><strong>${escaparHtml(c.nombre)}</strong></li>
                         <li>${escaparHtml(c.telefono)}</li>
-                        <li>${c.pasajeros || 1} pasajero(s)</li>
-                        <li>Emergencia: ${escaparHtml(c.emergenciaNombre)} — ${escaparHtml(c.emergenciaTel)}</li>
+                        <li>${c.pasajeros ? `${c.pasajeros} pasajero(s)` : (estado === "cotizacion_pendiente" ? "Pasajeros: por confirmar" : "1 pasajero(s)")}</li>
+                        <li>Emergencia: ${estado === "cotizacion_pendiente" && !c.emergenciaNombre ? "Por confirmar" : `${escaparHtml(c.emergenciaNombre)} — ${escaparHtml(c.emergenciaTel)}`}</li>
                     </ul>
                 </div>
                 <div class="admin-card-block">
@@ -579,6 +595,7 @@ function renderTarjetaSolicitud(item) {
                     <p class="admin-card-price">$${cot.estimado ?? "—"} MXN</p>
                     <p>Tope imprevistos: $${cot.topeImprevistos ?? "—"} MXN</p>
                     <p>${escaparHtml(cot.nivelServicio || "")}</p>
+                    ${cotizacionPendienteInfo}
                 </div>
             </div>
             <div class="admin-card-footer">
@@ -730,6 +747,37 @@ function renderDetalleDiaCalendario() {
             </article>
         `;
     }).join("");
+}
+
+async function expirarCotizacionesVencidas(lista) {
+    const ahora = Date.now();
+
+    const vencidas = lista.filter(item => {
+        if (item.estado !== "cotizacion_pendiente" || !item.expiraAt?.toDate) return false;
+        return item.expiraAt.toDate().getTime() < ahora;
+    });
+
+    if (!vencidas.length) return;
+
+    for (const item of vencidas) {
+        try {
+            await updateDoc(doc(db, "solicitudes", item.id), {
+                estado: "cancelado",
+                updatedAt: serverTimestamp()
+            });
+
+            if (item.tokenConfirmacion) {
+                await updateDoc(doc(db, "confirmaciones_cotizacion", item.tokenConfirmacion), {
+                    estado: "expirada",
+                    respondedAt: serverTimestamp()
+                });
+            }
+
+            await sincronizarSlotSolicitud(db, { ...item, estado: "cancelado" });
+        } catch (err) {
+            console.warn("No se pudo expirar cotización:", item.refSolicitud, err);
+        }
+    }
 }
 
 async function sincronizarDisponibilidadPublica() {
@@ -927,6 +975,7 @@ function escucharSolicitudes() {
             );
             procesarNuevasSolicitudes(lista);
             solicitudes = lista;
+            void expirarCotizacionesVencidas(lista);
             renderTodo();
             if (!disponibilidadSincronizada) {
                 void sincronizarDisponibilidadPublica();
@@ -964,6 +1013,7 @@ function mostrarAdmin(user) {
     }
     escucharSolicitudes();
     escucharResenasPendientes();
+    initAdminCotizador();
 }
 
 function mostrarLogin() {

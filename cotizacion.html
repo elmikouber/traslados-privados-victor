@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Confirmar cotización | Traslados Privados Víctor</title>
+    <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+    <meta name="theme-color" content="#080808">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=44">
+    <link rel="stylesheet" href="cotizacion.css?v=1">
+</head>
+<body class="cotizacion-body">
+
+<header class="cotizacion-header">
+    <div class="container cotizacion-header-inner">
+        <a href="index.html" class="nav-logo">
+            <span class="nav-logo-icon">VP</span>
+            <span class="nav-logo-text">
+                <span class="nav-logo-line1">TRASLADOS PRIVADOS</span>
+                <span class="nav-logo-line2">VÍCTOR</span>
+            </span>
+        </a>
+        <a href="index.html" class="btn btn-outline cotizacion-back">Inicio</a>
+    </div>
+</header>
+
+<main class="cotizacion-main">
+    <div class="container cotizacion-container">
+        <div class="cotizacion-intro">
+            <span class="section-tag">Tu cotización</span>
+            <h1 class="cotizacion-title" id="cotizacionTitle">Confirmar servicio</h1>
+            <p class="cotizacion-sub" id="cotizacionSub">Cargando cotización…</p>
+            <span class="cotizacion-ref" id="cotizacionRef" hidden></span>
+        </div>
+
+        <p class="cotizacion-loading" id="cotizacionLoading">Verificando enlace…</p>
+        <p class="cotizacion-alert" id="cotizacionAlert" hidden role="alert"></p>
+
+        <div id="cotizacionContenido" hidden>
+            <div class="cotizacion-card" id="cotizacionResumen"></div>
+
+            <form class="cotizacion-form" id="cotizacionForm" novalidate>
+                <div class="form-group">
+                    <label for="cotNombre">Nombre completo</label>
+                    <input type="text" id="cotNombre" required autocomplete="name">
+                </div>
+                <div class="form-group">
+                    <label for="cotPasajeros">Pasajeros (máx. 4)</label>
+                    <select id="cotPasajeros" required>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="cotEmergenciaNombre">Contacto de emergencia</label>
+                    <input type="text" id="cotEmergenciaNombre" required autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="cotEmergenciaTel">Teléfono de emergencia</label>
+                    <input type="tel" id="cotEmergenciaTel" required inputmode="tel" autocomplete="tel">
+                </div>
+
+                <div class="cotizacion-politicas">
+                    <label>
+                        <input type="checkbox" id="cotAceptaPoliticas" required>
+                        <span>Acepto las políticas del servicio: precio fijo salvo incrementos por tráfico, desvíos, accidentes o imprevistos en ruta.</span>
+                    </label>
+                </div>
+
+                <div class="cotizacion-actions">
+                    <button type="submit" class="btn btn-gold" id="cotBtnAceptar">Aceptar y confirmar reserva</button>
+                    <button type="button" class="btn btn-cot-rechazar" id="cotBtnRechazar">Rechazar cotización</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</main>
+
+<footer class="cotizacion-footer container">
+    <p>¿Dudas? Escríbenos por <a href="https://wa.me/526648196809" target="_blank" rel="noopener">WhatsApp</a>.</p>
+</footer>
+
+<script type="module" src="firebase-cotizacion-cliente.js?v=1"></script>
+</body>
+</html>
