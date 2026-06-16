@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
     <link rel="preload" as="image" href="images/hero1.png">
-    <link rel="stylesheet" href="styles.css?v=17">
+    <link rel="stylesheet" href="styles.css?v=42">
 </head>
 <body>
 
@@ -35,8 +35,8 @@
             <li><a href="#inicio" class="active">INICIO</a></li>
             <li><a href="#servicios">SERVICIOS</a></li>
             <li><a href="#vehiculo">MI VEHÍCULO</a></li>
-            <li><a href="#cotizar">COTIZAR</a></li>
             <li><a href="#destinos">DESTINOS</a></li>
+            <li><a href="#cotizar">COTIZAR</a></li>
             <li><a href="#resenas">RESEÑAS</a></li>
             <li><a href="#contacto">CONTACTO</a></li>
         </ul>
@@ -451,22 +451,103 @@
             <div class="section-header section-header-left">
                 <h2 class="section-title">LO QUE DICEN MIS CLIENTES</h2>
             </div>
-            <div class="testimonials-grid">
-                <article class="testimonial-card">
-                    <div class="stars" aria-label="5 estrellas">★★★★★</div>
-                    <p>"Excelente servicio, muy puntual y el auto impecable. Ideal para el aeropuerto."</p>
-                    <span class="testimonial-author">— Laura G.</span>
-                </article>
-                <article class="testimonial-card">
-                    <div class="stars" aria-label="5 estrellas">★★★★★</div>
-                    <p>"Víctor fue muy amable en nuestro tour al valle. Flexible con el itinerario que armamos."</p>
-                    <span class="testimonial-author">— Carlos M.</span>
-                </article>
-                <article class="testimonial-card">
-                    <div class="stars" aria-label="5 estrellas">★★★★★</div>
-                    <p>"Traslado a Rosarito sin complicaciones. Precio justo y comunicación clara."</p>
-                    <span class="testimonial-author">— Ana R.</span>
-                </article>
+            <div class="testimonials-carousel" id="resenasCarousel">
+                <button
+                    type="button"
+                    class="testimonials-carousel-btn"
+                    id="resenasPrev"
+                    aria-label="Ver reseñas anteriores"
+                >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+                </button>
+                <div class="testimonials-carousel-viewport">
+                    <div class="testimonials-carousel-track" id="resenasTrack">
+                        <div class="testimonials-dynamic" id="resenasDinamicas"></div>
+                        <article class="testimonial-card">
+                            <div class="stars" aria-label="5 estrellas">★★★★★</div>
+                            <p>"Excelente servicio, muy puntual y el auto impecable. Ideal para el aeropuerto."</p>
+                            <span class="testimonial-author">— Laura G.</span>
+                        </article>
+                        <article class="testimonial-card">
+                            <div class="stars" aria-label="5 estrellas">★★★★★</div>
+                            <p>"Víctor fue muy amable en nuestro tour al valle. Flexible con el itinerario que armamos."</p>
+                            <span class="testimonial-author">— Carlos M.</span>
+                        </article>
+                        <article class="testimonial-card">
+                            <div class="stars" aria-label="5 estrellas">★★★★★</div>
+                            <p>"Traslado a Rosarito sin complicaciones. Precio justo y comunicación clara."</p>
+                            <span class="testimonial-author">— Ana R.</span>
+                        </article>
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    class="testimonials-carousel-btn"
+                    id="resenasNext"
+                    aria-label="Ver siguientes reseñas"
+                >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+                </button>
+            </div>
+
+            <div class="review-form-card" id="dejarResena">
+                <p class="review-form-locked" id="reviewFormLocked" hidden role="status"></p>
+                <form id="reviewForm" class="review-form" novalidate>
+                    <input type="hidden" id="reviewRef" name="ref">
+                    <input type="hidden" id="reviewToken" name="token">
+                    <input type="hidden" id="reviewStars" name="estrellas" value="5">
+
+                    <div class="review-form-eyebrow">
+                        <span class="section-tag">Tu opinión cuenta</span>
+                        <p class="review-ref-note" id="reviewRefNote" hidden></p>
+                    </div>
+
+                    <div class="review-form-body">
+                        <h3 class="review-form-title">Deja tu reseña</h3>
+
+                        <aside class="review-form-intro-block">
+                            <p class="review-form-intro">
+                                Valora tu traslado de 1 a 5 estrellas según <strong>puntualidad</strong>,
+                                <strong>trato y profesionalismo</strong>, <strong>limpieza del vehículo</strong>
+                                y <strong>comunicación</strong>. Tu calificación honesta ayuda a otros viajeros
+                                a elegir un servicio confiable y nos permite seguir mejorando en cada viaje.
+                            </p>
+                        </aside>
+
+                        <div class="form-group review-form-group--rating">
+                            <label>Tu calificación</label>
+                            <div class="review-stars-input" role="group" aria-label="Calificación en estrellas">
+                                <button type="button" class="review-star-btn is-active" data-star="1" aria-pressed="true">★</button>
+                                <button type="button" class="review-star-btn is-active" data-star="2" aria-pressed="true">★</button>
+                                <button type="button" class="review-star-btn is-active" data-star="3" aria-pressed="true">★</button>
+                                <button type="button" class="review-star-btn is-active" data-star="4" aria-pressed="true">★</button>
+                                <button type="button" class="review-star-btn is-active" data-star="5" aria-pressed="true">★</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group review-form-group--nombre">
+                        <label for="reviewNombre">Tu nombre</label>
+                        <input type="text" id="reviewNombre" required placeholder="Ej. Juan P." autocomplete="name">
+                    </div>
+
+                    <div class="form-group" id="reviewTelefonoGroup">
+                        <label for="reviewTelefono">Tu teléfono (WhatsApp del viaje)</label>
+                        <input type="tel" id="reviewTelefono" required placeholder="Ej. 664 123 4567" autocomplete="tel">
+                        <p class="review-field-hint">Debe ser el mismo teléfono con el que reservaste.</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reviewComentario">Tu experiencia</label>
+                        <textarea id="reviewComentario" rows="3" required placeholder="¿Cómo fue tu traslado con Víctor?"></textarea>
+                    </div>
+
+                    <p class="review-error" id="reviewError" hidden role="alert"></p>
+                    <p class="review-success" id="reviewSuccess" hidden role="status"></p>
+
+                    <button type="submit" class="btn btn-gold" id="reviewSubmit">Enviar reseña</button>
+                    <p class="review-form-note">Las reseñas se publican después de una breve revisión. Solo clientes con viaje completado pueden enviar reseña.</p>
+                </form>
             </div>
         </div>
 
@@ -669,6 +750,8 @@
 </div>
 
 <script src="config.js"></script>
-<script src="script.js?v=17"></script>
+<script type="module" src="firebase-solicitudes.js?v=19"></script>
+<script type="module" src="firebase-resenas.js?v=6"></script>
+<script src="script.js?v=19"></script>
 </body>
 </html>

@@ -1,0 +1,51 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function invitacionResenaValida(token, telefono, refSolicitud) {
+      return exists(/databases/$(database)/documents/invitaciones_resena/$(token))
+        && get(/databases/$(database)/documents/invitaciones_resena/$(token)).data.usado == false
+        && get(/databases/$(database)/documents/invitaciones_resena/$(token)).data.telefono == telefono
+        && get(/databases/$(database)/documents/invitaciones_resena/$(token)).data.refSolicitud == refSolicitud;
+    }
+
+    match /solicitudes/{id} {
+      allow create: if true;
+      allow read, update: if request.auth != null;
+      allow delete: if false;
+    }
+
+    match /invitaciones_resena/{token} {
+      allow create: if request.auth != null;
+      allow get: if true;
+      allow list: if false;
+      allow update: if resource.data.usado == false
+        && request.resource.data.usado == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usado', 'usadoAt']);
+      allow delete: if false;
+    }
+
+    match /resenas/{resenaId} {
+      allow create: if request.resource.data.estado == "pendiente"
+        && request.resource.data.refSolicitud == resenaId
+        && request.resource.data.token is string
+        && request.resource.data.telefono is string
+        && request.resource.data.telefono.size() >= 10
+        && !exists(/databases/$(database)/documents/resenas/$(resenaId))
+        && invitacionResenaValida(
+          request.resource.data.token,
+          request.resource.data.telefono,
+          resenaId
+        );
+      allow read: if resource.data.estado == "aprobada" || request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+  }
+}
