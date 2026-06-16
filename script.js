@@ -1226,7 +1226,7 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
 const galleryLightbox = document.getElementById("galleryLightbox");
 const lightboxImg = document.getElementById("lightboxImg");
 const lightboxCaption = document.getElementById("lightboxCaption");
-const lightboxClose = document.querySelector(".lightbox-close");
+const lightboxClose = document.getElementById("galleryLightboxClose");
 
 function openLightbox(item) {
     const img = item.querySelector("img");

@@ -17,7 +17,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css?v=18">
-    <link rel="stylesheet" href="admin.css?v=3">
+    <link rel="stylesheet" href="admin.css?v=5">
 </head>
 <body class="admin-body">
 
@@ -58,12 +58,44 @@
                 </div>
             </div>
             <div class="admin-header-actions">
+                <button type="button" class="btn btn-outline admin-header-btn" id="adminCalendarBtn" title="Ver calendario de reservas">📅 Calendario</button>
                 <button type="button" class="btn btn-outline admin-header-btn admin-notify-btn" id="notifyBtn" title="Avisos de nuevas solicitudes">🔔 Avisos</button>
                 <a href="index.html" class="btn btn-outline admin-header-btn">Sitio web</a>
                 <button type="button" class="btn btn-outline admin-header-btn" id="logoutBtn">Cerrar sesión</button>
             </div>
         </div>
     </header>
+
+    <div class="admin-calendar-overlay" id="adminCalendarPanel" hidden aria-hidden="true">
+        <div class="admin-calendar-panel" role="dialog" aria-modal="true" aria-labelledby="adminCalendarPanelTitle">
+            <div class="admin-calendar-panel-head">
+                <div>
+                    <h2 id="adminCalendarPanelTitle">Calendario de reservas</h2>
+                    <p class="admin-calendar-sub">Consulta qué días tienes ocupados antes de confirmar disponibilidad.</p>
+                </div>
+                <button type="button" class="admin-calendar-close" id="adminCalendarClose" aria-label="Cerrar calendario">×</button>
+            </div>
+            <div class="admin-calendar-panel-body">
+                <div class="admin-calendar-head">
+                    <div class="admin-calendar-nav">
+                        <button type="button" class="btn btn-outline admin-calendar-nav-btn" id="adminCalPrev" aria-label="Mes anterior">‹</button>
+                        <strong id="adminCalTitle" class="admin-calendar-title"></strong>
+                        <button type="button" class="btn btn-outline admin-calendar-nav-btn" id="adminCalNext" aria-label="Mes siguiente">›</button>
+                    </div>
+                </div>
+                <div class="admin-calendar-legend" aria-hidden="true">
+                    <span><i class="admin-cal-dot admin-cal-dot--libre"></i> Libre</span>
+                    <span><i class="admin-cal-dot admin-cal-dot--parcial"></i> Con reservas</span>
+                    <span><i class="admin-cal-dot admin-cal-dot--ocupado"></i> Muy ocupado</span>
+                </div>
+                <div class="admin-calendar-grid" id="adminCalendarGrid" role="grid" aria-label="Calendario mensual de reservas"></div>
+                <div class="admin-calendar-day-detail" id="adminCalendarDayDetail" hidden>
+                    <h3 id="adminCalendarDayTitle"></h3>
+                    <div id="adminCalendarDayList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <main class="admin-main container">
         <div class="admin-stats" id="adminStats" aria-live="polite"></div>
@@ -89,7 +121,7 @@
     </main>
 </div>
 
-<script type="module" src="admin.js?v=10"></script>
+<script type="module" src="admin.js?v=12"></script>
 <script>
     document.querySelector('script[type="module"]')?.addEventListener("error", function () {
         var el = document.getElementById("loginError");

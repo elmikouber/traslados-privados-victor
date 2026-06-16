@@ -16,6 +16,17 @@ import {
     serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 import { firebaseConfig, SITE_BASE_URL } from "./firebase-config.js";
+import {
+    agruparSolicitudesPorFecha,
+    evaluarDisponibilidadDia,
+    formatearMesAnio,
+    diasDelMes,
+    primerDiaSemanaMes,
+    fechaIso,
+    fechaHoyLocal,
+    sincronizarSlotSolicitud,
+    sincronizarSlotsDesdeSolicitudes
+} from "./firebase-disponibilidad.js";
 
 const ESTADOS = [
     { id: "todas", label: "Todas", filtro: null },
@@ -70,6 +81,16 @@ const refreshBtn = document.getElementById("refreshBtn");
 const resenasPendientesList = document.getElementById("resenasPendientesList");
 const resenasPendientesCount = document.getElementById("resenasPendientesCount");
 const resenasPendientesEmpty = document.getElementById("resenasPendientesEmpty");
+const adminCalendarGrid = document.getElementById("adminCalendarGrid");
+const adminCalTitle = document.getElementById("adminCalTitle");
+const adminCalPrev = document.getElementById("adminCalPrev");
+const adminCalNext = document.getElementById("adminCalNext");
+const adminCalendarDayDetail = document.getElementById("adminCalendarDayDetail");
+const adminCalendarDayTitle = document.getElementById("adminCalendarDayTitle");
+const adminCalendarDayList = document.getElementById("adminCalendarDayList");
+const adminCalendarPanel = document.getElementById("adminCalendarPanel");
+const adminCalendarBtn = document.getElementById("adminCalendarBtn");
+const adminCalendarClose = document.getElementById("adminCalendarClose");
 
 let filtroActivo = "todas";
 let solicitudes = [];
@@ -82,6 +103,11 @@ let actualizandoId = null;
 let aprobandoResenaId = null;
 let rechazandoResenaId = null;
 let notificacionesHabilitadas = localStorage.getItem("tpv_admin_notify") === "1";
+let calendarioMes = new Date().getMonth();
+let calendarioAnio = new Date().getFullYear();
+let calendarioDiaSeleccionado = fechaHoyLocal();
+let disponibilidadSincronizada = false;
+let calendarioAbierto = false;
 
 const notifyBtn = document.getElementById("notifyBtn");
 
@@ -590,7 +616,130 @@ function renderLista() {
 
 function renderTodo() {
     renderStats();
+    if (calendarioAbierto) renderCalendario();
     renderLista();
+}
+
+function abrirCalendario() {
+    if (!adminCalendarPanel) return;
+    calendarioAbierto = true;
+    adminCalendarPanel.hidden = false;
+    adminCalendarPanel.setAttribute("aria-hidden", "false");
+    document.body.classList.add("admin-calendar-open");
+    requestAnimationFrame(() => adminCalendarPanel.classList.add("is-open"));
+    renderCalendario();
+}
+
+function cerrarCalendario() {
+    if (!adminCalendarPanel) return;
+    calendarioAbierto = false;
+    adminCalendarPanel.classList.remove("is-open");
+    adminCalendarPanel.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("admin-calendar-open");
+    setTimeout(() => {
+        if (!calendarioAbierto) adminCalendarPanel.hidden = true;
+    }, 280);
+}
+
+function solicitudesActivasPorFecha() {
+    return agruparSolicitudesPorFecha(solicitudes, true);
+}
+
+function renderCalendario() {
+    if (!adminCalendarGrid || !adminCalTitle) return;
+
+    const porFecha = solicitudesActivasPorFecha();
+    const totalDias = diasDelMes(calendarioAnio, calendarioMes);
+    const offset = primerDiaSemanaMes(calendarioAnio, calendarioMes);
+    const hoy = fechaHoyLocal();
+
+    adminCalTitle.textContent = formatearMesAnio(calendarioAnio, calendarioMes);
+
+    const encabezado = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
+        .map(dia => `<div class="admin-calendar-weekday">${dia}</div>`)
+        .join("");
+
+    let celdas = "";
+    for (let i = 0; i < offset; i++) {
+        celdas += `<div class="admin-calendar-cell is-empty" aria-hidden="true"></div>`;
+    }
+
+    for (let dia = 1; dia <= totalDias; dia++) {
+        const fecha = fechaIso(calendarioAnio, calendarioMes, dia);
+        const viajes = (porFecha[fecha] || []).map(s => s.viaje || {});
+        const estadoDia = evaluarDisponibilidadDia(viajes);
+        const esHoy = fecha === hoy;
+        const esSeleccionado = fecha === calendarioDiaSeleccionado;
+        const cantidad = porFecha[fecha]?.length || 0;
+
+        celdas += `
+            <button
+                type="button"
+                class="admin-calendar-cell admin-calendar-cell--${estadoDia.nivel}${esHoy ? " is-today" : ""}${esSeleccionado ? " is-selected" : ""}"
+                data-fecha="${fecha}"
+                aria-label="${dia}, ${estadoDia.etiqueta}${cantidad ? `, ${cantidad} reserva(s)` : ""}"
+            >
+                <span class="admin-calendar-day-num">${dia}</span>
+                ${cantidad ? `<span class="admin-calendar-day-count">${cantidad}</span>` : ""}
+            </button>
+        `;
+    }
+
+    adminCalendarGrid.innerHTML = `${encabezado}${celdas}`;
+
+    adminCalendarGrid.querySelectorAll(".admin-calendar-cell[data-fecha]").forEach(btn => {
+        btn.addEventListener("click", () => {
+            calendarioDiaSeleccionado = btn.dataset.fecha;
+            renderCalendario();
+            renderDetalleDiaCalendario();
+        });
+    });
+
+    renderDetalleDiaCalendario();
+}
+
+function renderDetalleDiaCalendario() {
+    if (!adminCalendarDayDetail || !adminCalendarDayTitle || !adminCalendarDayList) return;
+
+    const porFecha = agruparSolicitudesPorFecha(solicitudes, false);
+    const delDia = porFecha[calendarioDiaSeleccionado] || [];
+
+    adminCalendarDayTitle.textContent = formatearFechaCorta(calendarioDiaSeleccionado);
+    adminCalendarDayDetail.hidden = false;
+
+    if (!delDia.length) {
+        adminCalendarDayList.innerHTML = `<p class="admin-calendar-day-empty">Sin reservas este día.</p>`;
+        return;
+    }
+
+    adminCalendarDayList.innerHTML = delDia.map(item => {
+        const v = item.viaje || {};
+        const c = item.cliente || {};
+        const estado = item.estado || "pendiente";
+        const tipo = TIPO_LABELS[v.tipo] || v.tipo || "—";
+
+        return `
+            <article class="admin-calendar-event admin-estado--${estado}">
+                <div class="admin-calendar-event-head">
+                    <strong>${formatearHorario12h(v.horario)}</strong>
+                    <span class="admin-estado admin-estado--${estado}">${ETIQUETAS_ESTADO[estado] || estado}</span>
+                </div>
+                <p>${escaparHtml(tipo)} · ${escaparHtml(c.nombre || "Cliente")}</p>
+                <p class="admin-calendar-event-route">${escaparHtml(v.origen || "")} → ${escaparHtml(v.destino || "")}</p>
+                <p class="admin-calendar-event-ref">${escaparHtml(item.refSolicitud || "")}</p>
+            </article>
+        `;
+    }).join("");
+}
+
+async function sincronizarDisponibilidadPublica() {
+    if (!solicitudes.length) return;
+    try {
+        await sincronizarSlotsDesdeSolicitudes(db, solicitudes);
+        disponibilidadSincronizada = true;
+    } catch (err) {
+        console.warn("Sync disponibilidad:", err);
+    }
 }
 
 async function cambiarEstado(docId, nuevoEstado) {
@@ -609,6 +758,9 @@ async function cambiarEstado(docId, nuevoEstado) {
         });
 
         if (item && estadoAnterior !== nuevoEstado) {
+            const itemActualizado = { ...item, estado: nuevoEstado };
+            await sincronizarSlotSolicitud(db, itemActualizado);
+
             if (nuevoEstado === "confirmado") {
                 abrirWhatsAppCliente(item, "confirmado");
             } else if (nuevoEstado === "completado") {
@@ -776,6 +928,9 @@ function escucharSolicitudes() {
             procesarNuevasSolicitudes(lista);
             solicitudes = lista;
             renderTodo();
+            if (!disponibilidadSincronizada) {
+                void sincronizarDisponibilidadPublica();
+            }
             if (adminLoading) adminLoading.hidden = true;
             console.info(`Admin: ${solicitudes.length} solicitud(es) cargada(s).`);
         },
@@ -896,6 +1051,34 @@ onAuthStateChanged(auth, user => {
     } else {
         mostrarLogin();
     }
+});
+
+adminCalPrev?.addEventListener("click", () => {
+    calendarioMes -= 1;
+    if (calendarioMes < 0) {
+        calendarioMes = 11;
+        calendarioAnio -= 1;
+    }
+    renderCalendario();
+});
+
+adminCalNext?.addEventListener("click", () => {
+    calendarioMes += 1;
+    if (calendarioMes > 11) {
+        calendarioMes = 0;
+        calendarioAnio += 1;
+    }
+    renderCalendario();
+});
+
+adminCalendarBtn?.addEventListener("click", abrirCalendario);
+adminCalendarClose?.addEventListener("click", cerrarCalendario);
+adminCalendarPanel?.addEventListener("click", event => {
+    if (event.target === adminCalendarPanel) cerrarCalendario();
+});
+
+document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && calendarioAbierto) cerrarCalendario();
 });
 
 renderFiltros();

@@ -3,9 +3,12 @@ import {
     getFirestore,
     collection,
     addDoc,
+    doc,
+    setDoc,
     serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
+import { construirSlotDesdeSolicitud } from "./firebase-disponibilidad.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -65,6 +68,12 @@ function armarDocumentoSolicitud({ datos, promedio, confirmado, reserva }) {
 window.guardarSolicitudFirebase = async function guardarSolicitudFirebase(payload) {
     const documento = armarDocumentoSolicitud(payload);
     await addDoc(collection(db, "solicitudes"), documento);
+
+    const slot = construirSlotDesdeSolicitud(documento);
+    if (slot) {
+        await setDoc(doc(db, "disponibilidad", slot.fecha, "slots", slot.ref), slot);
+    }
+
     return documento.refSolicitud;
 };
 
