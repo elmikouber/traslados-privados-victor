@@ -341,7 +341,7 @@ export function obtenerRequisitosViaje(datos, promedio = 0) {
     return [...obtenerPoliticasReserva(datos, promedio), ...obtenerNotasDestino(datos)];
 }
 
-export function construirMensajeCotizacionCliente(datos, promedio, confirmado, nombreCliente = "", urlConfirmacion = "") {
+export function construirMensajeCotizacionCliente(datos, promedio, confirmado, nombreCliente = "", urlConfirmacion = "", expiraTexto = "") {
     const nivel = TARIFAS[datos.nivelServicio || "ejecutivo"];
     const saludo = nombreCliente.trim() ? `Hola ${nombreCliente.trim()},` : "Hola,";
 
@@ -390,13 +390,17 @@ export function construirMensajeCotizacionCliente(datos, promedio, confirmado, n
     obtenerRequisitosViaje(datos, promedio).forEach(req => lineas.push(`• ${req}`));
 
     if (urlConfirmacion) {
+        const avisoTiempo = expiraTexto
+            ? `⏳ Tienes *${HORAS_VALIDEZ_ENLACE_COTIZACION} horas* para confirmar (válido hasta *${expiraTexto}*). Si no confirmas, la cotización se cancela sola.`
+            : `⏳ Tienes *${HORAS_VALIDEZ_ENLACE_COTIZACION} horas* para confirmar. Si no confirmas, la cotización se cancela sola.`;
+
         lineas.push(
             "",
             "✅ CONFIRMAR RESERVA",
             "Toca el enlace para aceptar o rechazar tu cotización:",
             urlConfirmacion,
             "",
-            "⏳ El enlace tiene tiempo limitado. Si no confirmas a tiempo, la cotización se cancela automáticamente."
+            avisoTiempo
         );
     } else {
         lineas.push(
@@ -414,6 +418,8 @@ export function construirMensajeCotizacionCliente(datos, promedio, confirmado, n
 
     return lineas.join("\n");
 }
+
+export const HORAS_VALIDEZ_ENLACE_COTIZACION = 3;
 
 export function normalizarTelefonoWa(tel) {
     const digitos = String(tel || "").replace(/\D/g, "");

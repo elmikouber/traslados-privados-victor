@@ -12,7 +12,8 @@ import {
     tipoLabels,
     formatearFecha,
     formatearHorario12h,
-    crearFechaSalidaProgramada
+    crearFechaSalidaProgramada,
+    HORAS_VALIDEZ_ENLACE_COTIZACION
 } from "./cotizador-core.js";
 import { renderizarMapaRuta } from "./cotizador-rutas.js";
 
@@ -90,7 +91,7 @@ function renderResumen(conf) {
             <p>${escapeHtml(modalidad)}${r.km != null ? ` · ${r.km} km` : ""}</p>
             ${r.vinedos ? `<p>Viñedos: ${escapeHtml(r.vinedos)}</p>` : ""}
         </div>
-        <p class="cotizacion-expira" id="cotizacionExpira">Válida hasta: ${escapeHtml(formatearExpiracion(conf.expiraAt))}</p>
+        <p class="cotizacion-expira" id="cotizacionExpira">Confirma en las próximas ${HORAS_VALIDEZ_ENLACE_COTIZACION} horas · Válido hasta: ${escapeHtml(formatearExpiracion(conf.expiraAt))}</p>
     `;
 }
 

@@ -9,12 +9,8 @@ import {
     Timestamp
 } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 import { firebaseConfig, SITE_BASE_URL } from "./firebase-config.js";
-import { parsearFechaHoraViaje } from "./cotizador-core.js";
+import { HORAS_VALIDEZ_ENLACE_COTIZACION } from "./cotizador-core.js";
 import { construirSlotDesdeSolicitud } from "./firebase-disponibilidad.js";
-
-const HORAS_VALIDEZ_COTIZACION = 24;
-const HORAS_ANTES_VIAJE_CORTE = 2;
-const MINUTOS_VALIDEZ_MINIMA = 30;
 
 function getDb() {
     const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
@@ -33,18 +29,19 @@ export function generarRefSolicitud() {
     return `TPV-${sufijo}`;
 }
 
-export function calcularExpiracionCotizacion(fecha, horario) {
-    const ahora = Date.now();
-    const limite24h = ahora + HORAS_VALIDEZ_COTIZACION * 60 * 60 * 1000;
-
-    let limiteViaje = limite24h;
-    const viaje = parsearFechaHoraViaje(fecha, horario);
-    if (viaje) {
-        limiteViaje = Math.min(limiteViaje, viaje.getTime() - HORAS_ANTES_VIAJE_CORTE * 60 * 60 * 1000);
-    }
-
-    const expiraMs = Math.max(limiteViaje, ahora + MINUTOS_VALIDEZ_MINIMA * 60 * 1000);
+export function calcularExpiracionCotizacion() {
+    const expiraMs = Date.now() + HORAS_VALIDEZ_ENLACE_COTIZACION * 60 * 60 * 1000;
     return Timestamp.fromDate(new Date(expiraMs));
+}
+
+export function formatearExpiracionWhatsApp(expiraAt) {
+    if (!expiraAt?.toDate) return "";
+    return expiraAt.toDate().toLocaleString("es-MX", {
+        day: "numeric",
+        month: "short",
+        hour: "numeric",
+        minute: "2-digit"
+    });
 }
 
 export function construirUrlConfirmacionCotizacion(token) {
@@ -134,7 +131,7 @@ function armarConfirmacionCotizacion({ token, solicitudId, refSolicitud, telefon
 export async function guardarCotizacionPendienteAdmin({ datos, promedio, confirmado, nombre, telefono }) {
     const db = getDb();
     const token = generarTokenConfirmacion();
-    const expiraAt = calcularExpiracionCotizacion(datos.fecha, datos.horario);
+    const expiraAt = calcularExpiracionCotizacion();
     const documento = armarDocumentoSolicitud({ datos, promedio, confirmado, nombre, telefono, token, expiraAt });
 
     const solicitudRef = await addDoc(collection(db, "solicitudes"), documento);

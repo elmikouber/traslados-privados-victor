@@ -17,7 +17,7 @@ import {
 } from "./cotizador-core.js";
 import { obtenerRuta, mensajeErrorRuta, renderizarMapaRuta } from "./cotizador-rutas.js";
 import { initPlacesAutocomplete } from "./places-autocomplete.js";
-import { guardarCotizacionPendienteAdmin } from "./firebase-cotizacion-pendiente.js";
+import { guardarCotizacionPendienteAdmin, formatearExpiracionWhatsApp } from "./firebase-cotizacion-pendiente.js";
 
 const panel = document.getElementById("adminCotizadorPanel");
 const btnAbrir = document.getElementById("adminCotizadorBtn");
@@ -308,17 +308,19 @@ async function enviarYAgendarPendiente() {
             telefono: waTel
         });
 
+        const expiraTexto = formatearExpiracionWhatsApp(resultado.expiraAt);
         const mensaje = construirMensajeCotizacionCliente(
             datos,
             promedio,
             confirmado,
             nombre,
-            resultado.urlConfirmacion
+            resultado.urlConfirmacion,
+            expiraTexto
         );
 
         window.open(`https://wa.me/${waTel}?text=${encodeURIComponent(mensaje)}`, "_blank", "noopener");
 
-        alert(`Cotización ${resultado.refSolicitud} guardada como pendiente. El cliente tiene hasta que expire el enlace para confirmar.`);
+        alert(`Cotización ${resultado.refSolicitud} guardada. El cliente tiene 3 horas para confirmar (hasta ${expiraTexto || "—"}).`);
     } catch (err) {
         console.error(err);
         alert("No se pudo guardar la cotización. Verifica conexión y reglas de Firestore.");
