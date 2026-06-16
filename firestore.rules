@@ -27,6 +27,10 @@ service cloud.firestore {
     }
 
     match /resenas/{resenaId} {
+      allow get: if !exists(/databases/$(database)/documents/resenas/$(resenaId))
+        || resource.data.estado == "aprobada"
+        || request.auth != null;
+      allow list: if resource.data.estado == "aprobada" || request.auth != null;
       allow create: if request.resource.data.estado == "pendiente"
         && request.resource.data.refSolicitud == resenaId
         && request.resource.data.token is string
@@ -38,7 +42,6 @@ service cloud.firestore {
           request.resource.data.telefono,
           resenaId
         );
-      allow read: if resource.data.estado == "aprobada" || request.auth != null;
       allow update: if request.auth != null;
       allow delete: if false;
     }

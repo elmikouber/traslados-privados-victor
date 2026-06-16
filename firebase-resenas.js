@@ -1,4 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
 import {
     getFirestore,
     collection,
@@ -14,7 +14,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 
-const app = initializeApp(firebaseConfig);
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 function estrellasHtml(cantidad) {
@@ -247,16 +247,6 @@ async function initFormularioResena() {
             return;
         }
 
-        const resenaSnap = await getDoc(doc(db, "resenas", invitacionActiva.refSolicitud));
-        if (resenaSnap.exists()) {
-            bloquearFormularioResena(
-                form,
-                lockedEl,
-                "Ya existe una reseña registrada para este viaje."
-            );
-            return;
-        }
-
         if (tokenInput) tokenInput.value = token;
         if (refInput) refInput.value = invitacionActiva.refSolicitud || "";
 
@@ -267,12 +257,11 @@ async function initFormularioResena() {
 
         desbloquearFormularioResena(form, lockedEl);
     } catch (err) {
-        console.error("Cargar invitación:", err);
-        bloquearFormularioResena(
-            form,
-            lockedEl,
-            "No se pudo verificar tu invitación. Intenta de nuevo en un momento."
-        );
+        console.error("Cargar invitación:", err.code, err.message);
+        const mensaje = err.code === "permission-denied"
+            ? "No se pudo verificar tu invitación (permisos). Avísanos por WhatsApp."
+            : "No se pudo verificar tu invitación. Intenta de nuevo en un momento.";
+        bloquearFormularioResena(form, lockedEl, mensaje);
         return;
     }
 
