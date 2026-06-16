@@ -80,6 +80,7 @@ let unsubscribeSolicitudes = null;
 let unsubscribeResenas = null;
 let actualizandoId = null;
 let aprobandoResenaId = null;
+let rechazandoResenaId = null;
 let notificacionesHabilitadas = localStorage.getItem("tpv_admin_notify") === "1";
 
 const notifyBtn = document.getElementById("notifyBtn");
@@ -649,7 +650,9 @@ function renderResenasPendientes() {
             const ref = item.refSolicitud
                 ? `<span class="admin-resena-ref">${escaparHtml(item.refSolicitud)}</span>`
                 : "";
-            const busy = aprobandoResenaId === item.id;
+            const busyAprobar = aprobandoResenaId === item.id;
+            const busyRechazar = rechazandoResenaId === item.id;
+            const busy = busyAprobar || busyRechazar;
 
             return `
                 <article class="admin-resena-card" data-id="${item.id}">
@@ -661,12 +664,20 @@ function renderResenasPendientes() {
                     <p class="admin-resena-comentario">"${escaparHtml(item.comentario)}"</p>
                     <div class="admin-resena-card-foot">
                         <span class="admin-resena-fecha">${formatearTimestamp(item.createdAt)}</span>
-                        <button
-                            type="button"
-                            class="admin-resena-aprobar"
-                            data-id="${item.id}"
-                            ${busy ? "disabled" : ""}
-                        >${busy ? "Aprobando…" : "Aprobar y publicar"}</button>
+                        <div class="admin-resena-actions">
+                            <button
+                                type="button"
+                                class="admin-resena-rechazar"
+                                data-id="${item.id}"
+                                ${busy ? "disabled" : ""}
+                            >${busyRechazar ? "Rechazando…" : "Rechazar"}</button>
+                            <button
+                                type="button"
+                                class="admin-resena-aprobar"
+                                data-id="${item.id}"
+                                ${busy ? "disabled" : ""}
+                            >${busyAprobar ? "Aprobando…" : "Aprobar y publicar"}</button>
+                        </div>
                     </div>
                 </article>
             `;
@@ -675,11 +686,14 @@ function renderResenasPendientes() {
         resenasPendientesList.querySelectorAll(".admin-resena-aprobar").forEach(btn => {
             btn.addEventListener("click", () => aprobarResena(btn.dataset.id));
         });
+        resenasPendientesList.querySelectorAll(".admin-resena-rechazar").forEach(btn => {
+            btn.addEventListener("click", () => rechazarResena(btn.dataset.id));
+        });
     }
 }
 
 async function aprobarResena(docId) {
-    if (!docId || aprobandoResenaId) return;
+    if (!docId || aprobandoResenaId || rechazandoResenaId) return;
 
     aprobandoResenaId = docId;
     renderResenasPendientes();
@@ -694,6 +708,28 @@ async function aprobarResena(docId) {
         alert("No se pudo aprobar la reseña. Verifica las reglas de Firestore.");
     } finally {
         aprobandoResenaId = null;
+        renderResenasPendientes();
+    }
+}
+
+async function rechazarResena(docId) {
+    if (!docId || aprobandoResenaId || rechazandoResenaId) return;
+
+    if (!confirm("¿Rechazar esta reseña? No se publicará en la web.")) return;
+
+    rechazandoResenaId = docId;
+    renderResenasPendientes();
+
+    try {
+        await updateDoc(doc(db, "resenas", docId), {
+            estado: "rechazada",
+            rechazadaAt: serverTimestamp()
+        });
+    } catch (err) {
+        console.error(err);
+        alert("No se pudo rechazar la reseña. Verifica las reglas de Firestore.");
+    } finally {
+        rechazandoResenaId = null;
         renderResenasPendientes();
     }
 }

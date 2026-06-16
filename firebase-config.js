@@ -8,3 +8,6 @@ export const firebaseConfig = {
 };
 
 export const SITE_BASE_URL = "https://elmikouber.github.io/traslados-privados-victor";
+
+/** Ruta del panel de gestión (no enlazar desde la web pública). */
+export const PANEL_PAGE = "tpv-gestion.html";

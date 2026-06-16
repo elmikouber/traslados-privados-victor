@@ -517,6 +517,13 @@
     flex-wrap: wrap;
 }
 
+.admin-resena-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
 .admin-resena-fecha {
     font-size: 0.7rem;
     color: var(--text-muted);
@@ -540,6 +547,28 @@
 }
 
 .admin-resena-aprobar:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.admin-resena-rechazar {
+    padding: 8px 14px;
+    background: rgba(229, 115, 115, 0.08);
+    border: 1px solid rgba(229, 115, 115, 0.45);
+    border-radius: var(--radius);
+    color: #e57373;
+    font-size: 0.7rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.admin-resena-rechazar:hover:not(:disabled) {
+    background: rgba(229, 115, 115, 0.18);
+    border-color: #e57373;
+}
+
+.admin-resena-rechazar:disabled {
     opacity: 0.6;
     cursor: wait;
 }
