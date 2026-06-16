@@ -10,6 +10,7 @@ import {
     collection,
     onSnapshot,
     doc,
+    getDoc,
     updateDoc,
     setDoc,
     serverTimestamp
@@ -191,16 +192,81 @@ async function crearInvitacionResena(item) {
     return token;
 }
 
-function construirMensajeResena(item, token) {
+function construirUrlHistorial(historialToken) {
+    if (!historialToken) return "";
+    return `${SITE_BASE_URL}/historial.html?h=${historialToken}`;
+}
+
+async function obtenerOCrearTokenHistorial(item) {
+    const telefono = normalizarTelefonoWa(item.cliente?.telefono);
+    if (!telefono) return null;
+
+    const indiceRef = doc(db, "historial_por_telefono", telefono);
+    const indiceSnap = await getDoc(indiceRef);
+
+    if (indiceSnap.exists()) {
+        return indiceSnap.data().historialToken || null;
+    }
+
+    const historialToken = generarTokenResena();
+
+    await setDoc(doc(db, "historial_clientes", historialToken), {
+        telefono,
+        nombreCliente: item.cliente?.nombre || "Cliente",
+        createdAt: serverTimestamp()
+    });
+
+    await setDoc(indiceRef, {
+        historialToken,
+        telefono,
+        updatedAt: serverTimestamp()
+    });
+
+    return historialToken;
+}
+
+async function registrarViajeHistorial(item, historialToken) {
+    if (!historialToken || !item.refSolicitud) return;
+
+    const v = item.viaje || {};
+    const cot = item.cotizacion || {};
+
+    await setDoc(doc(db, "historial_clientes", historialToken, "viajes", item.refSolicitud), {
+        refSolicitud: item.refSolicitud,
+        estado: "completado",
+        fecha: v.fecha || null,
+        horario: v.horario || null,
+        origen: v.origen || "",
+        destino: v.destino || "",
+        km: v.km ?? null,
+        estimado: cot.estimado ?? null,
+        tipo: v.tipo || item.tipo || "traslado",
+        completadoAt: serverTimestamp()
+    }, { merge: true });
+}
+
+function construirMensajeResena(item, tokenResena, historialToken) {
     const c = item.cliente || {};
     const nombre = c.nombre?.split(" ")[0] || "estimado cliente";
-    const linkResena = construirUrlResena(token, item.refSolicitud);
+    const linkResena = construirUrlResena(tokenResena, item.refSolicitud);
+    const linkHistorial = construirUrlHistorial(historialToken);
 
-    return [
+    const lineas = [
         `Hola ${nombre}, gracias por viajar con Traslados Privados Víctor.`,
         "",
         "Esperamos que tu traslado haya sido excelente.",
-        "",
+        ""
+    ];
+
+    if (linkHistorial) {
+        lineas.push(
+            "Consulta tu historial de viajes:",
+            linkHistorial,
+            ""
+        );
+    }
+
+    lineas.push(
         "¿Nos ayudas con una reseña? Solo toma 1 minuto.",
         "",
         "Deja tu reseña aquí:",
@@ -208,16 +274,18 @@ function construirMensajeResena(item, token) {
         "",
         "¡Gracias por tu confianza!",
         "- Víctor"
-    ].join("\n");
+    );
+
+    return lineas.join("\n");
 }
 
-function abrirWhatsAppCliente(item, tipo, tokenResena = null) {
+function abrirWhatsAppCliente(item, tipo, tokenResena = null, historialToken = null) {
     const telefono = normalizarTelefonoWa(item.cliente?.telefono);
     if (!telefono) return;
 
     const mensaje = tipo === "confirmado"
         ? construirMensajeConfirmacion(item)
-        : construirMensajeResena(item, tokenResena);
+        : construirMensajeResena(item, tokenResena, historialToken);
 
     window.open(`https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`, "_blank", "noopener");
 }
@@ -543,8 +611,11 @@ async function cambiarEstado(docId, nuevoEstado) {
             if (nuevoEstado === "confirmado") {
                 abrirWhatsAppCliente(item, "confirmado");
             } else if (nuevoEstado === "completado") {
-                const tokenResena = await crearInvitacionResena({ ...item, id: docId });
-                abrirWhatsAppCliente(item, "completado", tokenResena);
+                const itemCompleto = { ...item, id: docId };
+                const historialToken = await obtenerOCrearTokenHistorial(itemCompleto);
+                await registrarViajeHistorial(itemCompleto, historialToken);
+                const tokenResena = await crearInvitacionResena(itemCompleto);
+                abrirWhatsAppCliente(item, "completado", tokenResena, historialToken);
             }
         }
     } catch (err) {

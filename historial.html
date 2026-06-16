@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Mi historial | Traslados Privados Víctor</title>
+    <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+    <meta name="theme-color" content="#080808">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=42">
+    <link rel="stylesheet" href="historial.css?v=1">
+</head>
+<body class="historial-body">
+
+<header class="historial-header">
+    <div class="container historial-header-inner">
+        <a href="index.html" class="nav-logo">
+            <span class="nav-logo-icon">VP</span>
+            <span class="nav-logo-text">
+                <span class="nav-logo-line1">TRASLADOS PRIVADOS</span>
+                <span class="nav-logo-line2">VÍCTOR</span>
+            </span>
+        </a>
+        <a href="index.html" class="btn btn-outline historial-back">Volver al inicio</a>
+    </div>
+</header>
+
+<main class="historial-main">
+    <div class="container historial-container">
+        <div class="historial-intro">
+            <span class="section-tag">Tus viajes</span>
+            <h1 class="historial-title">Mi historial</h1>
+            <p class="historial-sub" id="historialSub">Cargando tus viajes…</p>
+        </div>
+
+        <p class="historial-alert" id="historialAlert" hidden role="alert"></p>
+
+        <div class="historial-list" id="historialList" hidden></div>
+
+        <p class="historial-empty" id="historialEmpty" hidden>Aún no hay viajes completados en tu historial.</p>
+
+        <div class="historial-actions">
+            <a href="https://wa.me/526648196809" class="btn btn-gold" target="_blank" rel="noopener">Reservar otro traslado</a>
+        </div>
+    </div>
+</main>
+
+<footer class="historial-footer">
+    <div class="container">
+        <p>Guarda este enlace para consultar tu historial cuando lo necesites.</p>
+    </div>
+</footer>
+
+<script type="module" src="firebase-historial.js?v=1"></script>
+</body>
+</html>
